@@ -8,17 +8,17 @@ const STEPS = [
   {
     title: "Welcome to Orbitboard",
     body: "A collaborative infinite canvas with physics, live presence, and creative tools. This short tour covers the essentials.",
-    tip: "You can reopen this tour anytime from the Help button.",
+    tip: "Reopen this tour anytime from the menu beside the Orbitboard name.",
   },
   {
     title: "Create & invite",
-    body: "Use the toolbar to add text, shapes, stickies, images, audio, or freehand drawings. Share the room with Invite so teammates join instantly.",
-    tip: "Shortcut: S shape · T text · D draw · V select",
+    body: "Pick a tool from the strip at the bottom of the screen — shapes, text, notes, images, audio or freehand. Hit Share, top right, to bring teammates in.",
+    tip: "Shortcuts: V select · H hand · D draw · S shape · T text · N note",
   },
   {
     title: "Select, move & resize",
     body: "Drag a box or Shift+click to multi-select. Press Ctrl/Cmd+A to select everything. Drag to move; use corner handles to resize one object or the whole group.",
-    tip: "Delete removes all currently selected objects.",
+    tip: "Ctrl/Cmd+D duplicates, Ctrl/Cmd+Z undoes, Delete removes the selection.",
   },
   {
     title: "Draw freeform",
@@ -27,7 +27,7 @@ const STEPS = [
   },
   {
     title: "Physics, radar & more",
-    body: "Enable Physics to fling and collide objects. Watch collaborators on the Radar minimap. Export JSON/SVG/PNG, go offline safely, or scrub Time Travel to replay the session.",
+    body: "Set colour, opacity and size in the panel on the right. Enable physics there to fling and collide objects. Exports and Time Travel live in the menu, top left.",
     tip: "You’re ready — start creating!",
   },
 ] as const;
@@ -79,15 +79,15 @@ export function OnboardingWizard({ onClose }: { onClose: () => void }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="onboarding-title"
-        className="ui-panel w-full max-w-lg rounded-3xl p-6 shadow-2xl"
+        className="ui-card w-full max-w-lg p-6"
       >
         <div className="mb-4 flex items-center justify-between gap-3">
-          <p className="ui-muted text-xs font-semibold uppercase tracking-[0.18em]">
+          <p className="ui-label text-xs font-semibold uppercase tracking-[0.18em]">
             Tour · {step + 1}/{STEPS.length}
           </p>
           <button
             type="button"
-            className="ui-muted text-xs hover:text-[var(--foreground)]"
+            className="ui-label text-xs hover:text-[var(--ui-fg)]"
             onClick={finish}
           >
             Skip
@@ -99,7 +99,7 @@ export function OnboardingWizard({ onClose }: { onClose: () => void }) {
             <div
               key={i}
               className={`h-1.5 flex-1 rounded-full ${
-                i <= step ? "bg-[var(--accent)]" : "bg-[var(--chip)]"
+                i <= step ? "bg-[var(--accent)]" : "bg-[var(--ui-hover)]"
               }`}
             />
           ))}
@@ -107,12 +107,12 @@ export function OnboardingWizard({ onClose }: { onClose: () => void }) {
 
         <h2
           id="onboarding-title"
-          className="font-[family-name:var(--font-display)] text-2xl text-[var(--foreground)]"
+          className="font-[family-name:var(--font-display)] text-2xl text-[var(--ui-fg)]"
         >
           {current.title}
         </h2>
-        <p className="ui-muted mt-3 text-sm leading-relaxed">{current.body}</p>
-        <p className="mt-4 rounded-xl bg-[var(--chip)] px-3 py-2 text-xs text-[var(--foreground)]">
+        <p className="ui-label mt-3 text-sm leading-relaxed">{current.body}</p>
+        <p className="mt-4 rounded-xl bg-[var(--ui-hover)] px-3 py-2 text-xs text-[var(--ui-fg)]">
           {current.tip}
         </p>
 
@@ -121,7 +121,7 @@ export function OnboardingWizard({ onClose }: { onClose: () => void }) {
             type="button"
             disabled={step === 0}
             onClick={() => setStep((s) => Math.max(0, s - 1))}
-            className="rounded-xl px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--panel-hover)] disabled:opacity-40"
+            className="rounded-xl px-4 py-2 text-sm text-[var(--ui-fg)] hover:bg-[var(--ui-hover)] disabled:opacity-40"
           >
             Back
           </button>

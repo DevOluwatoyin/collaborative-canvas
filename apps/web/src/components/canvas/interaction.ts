@@ -1,4 +1,5 @@
 import type { FederatedPointerEvent } from "pixi.js";
+import { MAX_ZOOM, MIN_ZOOM } from "./constants";
 import { handlePointerDown, handlePointerMove } from "./pointerHandlers";
 import { handlePointerEnd } from "./pointerEnd";
 import { createPointerSession } from "./pointerSession";
@@ -73,8 +74,8 @@ export class InteractionController {
     if (ev.ctrlKey || ev.metaKey) {
       const before = h.screenToWorld(sx, sy);
       h.viewport.zoom = Math.min(
-        8,
-        Math.max(0.05, h.viewport.zoom * Math.exp(-ev.deltaY * 0.01))
+        MAX_ZOOM,
+        Math.max(MIN_ZOOM, h.viewport.zoom * Math.exp(-ev.deltaY * 0.01))
       );
       h.applyViewport();
       const after = h.screenToWorld(sx, sy);

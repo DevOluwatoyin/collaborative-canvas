@@ -35,6 +35,7 @@ export async function exportPNG(
   const sorted = [...objects].sort((a, b) => a.zIndex - b.zIndex);
   for (const o of sorted) {
     ctx.save();
+    ctx.globalAlpha = o.opacity ?? 1;
     ctx.translate(o.x + o.width / 2, o.y + o.height / 2);
     ctx.rotate((o.rotation * Math.PI) / 180);
     ctx.translate(-o.width / 2, -o.height / 2);

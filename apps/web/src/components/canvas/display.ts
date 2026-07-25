@@ -69,6 +69,7 @@ export function updateDisplay(
 ) {
   entry.bg.clear();
   if (entry.label) entry.label.visible = false;
+  entry.root.alpha = obj.opacity ?? 1;
 
   if (lod) {
     entry.bg.rect(0, 0, obj.width, obj.height);

@@ -22,6 +22,8 @@ export type CanvasObject = {
   width: number;
   height: number;
   zIndex: number;
+  /** 0..1. Applied as a whole-object alpha by every renderer and exporter. */
+  opacity?: number;
   props: Record<string, unknown>;
   physics?: PhysicsConfig;
   vx?: number;
@@ -43,6 +45,7 @@ export const CANVAS_OBJECT_FIELDS = [
   "width",
   "height",
   "zIndex",
+  "opacity",
   "physics",
   "vx",
   "vy",
@@ -182,6 +185,7 @@ export function createCanvasObject(
     width: 160,
     height: 100,
     zIndex: 0,
+    opacity: 1,
     props: {},
     physics: createDefaultPhysics(false),
     vx: 0,

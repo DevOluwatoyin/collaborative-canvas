@@ -54,13 +54,13 @@ export function ReplayPanel({ onClose }: { onClose: () => void }) {
   const currentOp = clampedStep > 0 ? history[clampedStep - 1] : null;
 
   return (
-    <div className="ui-panel absolute inset-x-3 bottom-3 z-30 mx-auto max-w-3xl rounded-2xl p-4 md:inset-x-auto md:right-4 md:left-auto md:w-[28rem]">
+    <div className="ui-card absolute inset-x-3 bottom-[7.5rem] z-30 mx-auto max-w-3xl p-4 md:inset-x-auto md:bottom-3 md:right-3 md:left-auto md:w-[28rem]">
       <div className="mb-3 flex items-center justify-between">
         <div>
-          <h2 className="font-[family-name:var(--font-display)] text-lg text-[var(--foreground)]">
+          <h2 className="font-[family-name:var(--font-display)] text-lg text-[var(--ui-fg)]">
             Time Travel
           </h2>
-          <p className="ui-muted text-xs">
+          <p className="ui-label text-xs">
             Playing back on the canvas — live room is unchanged.
           </p>
         </div>
@@ -70,15 +70,15 @@ export function ReplayPanel({ onClose }: { onClose: () => void }) {
             setPlaying(false);
             onClose();
           }}
-          className="rounded-lg px-2 py-1 text-sm text-[var(--foreground)] hover:bg-[var(--panel-hover)]"
+          className="rounded-lg px-2 py-1 text-sm text-[var(--ui-fg)] hover:bg-[var(--ui-hover)]"
         >
           Close
         </button>
       </div>
 
-      <div className="mb-3 max-h-36 overflow-auto rounded-xl bg-[var(--chip)] p-2">
+      <div className="mb-3 max-h-36 overflow-auto rounded-xl bg-[var(--ui-hover)] p-2">
         {history.length === 0 ? (
-          <p className="ui-muted text-xs">
+          <p className="ui-label text-xs">
             No recent history — create or move objects first.
           </p>
         ) : (
@@ -86,8 +86,8 @@ export function ReplayPanel({ onClose }: { onClose: () => void }) {
             <li
               className={`flex justify-between gap-2 rounded px-1 py-0.5 ${
                 clampedStep === 0
-                  ? "bg-[var(--accent)]/25 font-medium text-[var(--foreground)]"
-                  : "text-[var(--foreground)]"
+                  ? "bg-[var(--accent)]/25 font-medium text-[var(--ui-fg)]"
+                  : "text-[var(--ui-fg)]"
               }`}
             >
               <span>
@@ -100,24 +100,24 @@ export function ReplayPanel({ onClose }: { onClose: () => void }) {
                 key={op.id}
                 className={`flex justify-between gap-2 rounded px-1 py-0.5 ${
                   i + 1 === clampedStep
-                    ? "bg-[var(--accent)]/25 font-medium text-[var(--foreground)]"
+                    ? "bg-[var(--accent)]/25 font-medium text-[var(--ui-fg)]"
                     : i + 1 < clampedStep
-                      ? "text-[var(--foreground)]"
-                      : "ui-muted"
+                      ? "text-[var(--ui-fg)]"
+                      : "ui-label"
                 }`}
               >
                 <span>
                   {historyBaseCount + i + 1}. {op.type}
                   {op.objectId ? ` · ${op.objectId.slice(0, 6)}` : ""}
                 </span>
-                <span className="ui-muted">{op.username}</span>
+                <span className="ui-label">{op.username}</span>
               </li>
             ))}
           </ul>
         )}
       </div>
 
-      <p className="ui-muted mb-2 text-[11px]">
+      <p className="ui-label mb-2 text-[11px]">
         Canvas objects at this step: <strong>{snapshot.length}</strong>
         {currentOp
           ? ` · ${currentOp.username} ${currentOp.type} @ ${new Date(
@@ -138,14 +138,14 @@ export function ReplayPanel({ onClose }: { onClose: () => void }) {
         }}
         className="w-full accent-[var(--accent)]"
       />
-      <div className="ui-muted mt-2 flex items-center justify-between text-xs">
+      <div className="ui-label mt-2 flex items-center justify-between text-xs">
         <span>
           Step {clampedStep} / {maxStep}
         </span>
         <div className="flex gap-2">
           <button
             type="button"
-            className="rounded-lg bg-[var(--chip)] px-3 py-1 text-[var(--foreground)] hover:bg-[var(--panel-hover)]"
+            className="rounded-lg bg-[var(--ui-hover)] px-3 py-1 text-[var(--ui-fg)] hover:bg-[var(--ui-active)]"
             onClick={() => {
               if (maxStep === 0) return;
               // Pressing play at the end restarts from the session start.
@@ -158,7 +158,7 @@ export function ReplayPanel({ onClose }: { onClose: () => void }) {
           </button>
           <button
             type="button"
-            className="rounded-lg bg-[var(--chip)] px-3 py-1 text-[var(--foreground)] hover:bg-[var(--panel-hover)]"
+            className="rounded-lg bg-[var(--ui-hover)] px-3 py-1 text-[var(--ui-fg)] hover:bg-[var(--ui-active)]"
             onClick={() => {
               setPlaying(false);
               setStep(0);

@@ -9,6 +9,8 @@ import {
   useRoomHandles,
   useRoomState,
 } from "@/components/room/RoomStoreProvider";
+import { setZoomHandle } from "@/components/room/store";
+import { getCurrentTheme, useTheme } from "@/lib/theme/ThemeProvider";
 
 /**
  * Owns the Pixi renderer. Nothing here re-renders React on canvas activity: the
@@ -25,6 +27,13 @@ export function CanvasStage() {
   const actions = useRoomActions();
   const editingTextId = useRoomState((s) => s.editingTextId);
   const editingObj = useObject(editingTextId);
+  const { theme } = useTheme();
+
+  // Palette changes are pushed into the existing renderer rather than being an
+  // effect dependency, so switching theme never rebuilds the WebGL context.
+  useEffect(() => {
+    engine?.setTheme(theme);
+  }, [engine, theme]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -34,6 +43,9 @@ export function CanvasStage() {
     const instance = new CanvasEngine({
       onViewportChange: (vp) => {
         if (!instance.isReady) return;
+        // Zustand compares the selected slice, so panning (which does not change
+        // zoom) writes the same number and re-renders nothing.
+        store.setState({ zoom: vp.zoom });
         const bounds = instance.getWorldBounds();
         actions.updatePresence({
           viewport: {
@@ -101,12 +113,13 @@ export function CanvasStage() {
       instance.render();
     };
 
-    void instance.init(host).then(() => {
+    void instance.init(host, getCurrentTheme()).then(() => {
       if (cancelled) {
         instance.destroy();
         return;
       }
       instance.attachSource(refs.objects);
+      setZoomHandle(refs, (zoom) => instance.setZoom(zoom));
       instance.setTool(store.getState().tool);
       instance.setSelectedIds(store.getState().selectedIds);
       instance.syncCursors(store.getState().remotes);
@@ -131,6 +144,7 @@ export function CanvasStage() {
       cancelled = true;
       cancelAnimationFrame(raf);
       unsubscribe();
+      setZoomHandle(refs, null);
       setEngine(null);
       instance.destroy();
     };

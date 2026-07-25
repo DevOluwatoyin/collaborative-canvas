@@ -9,10 +9,15 @@ import type {
   ShapeKind,
   Tool,
 } from "@infinite-canvas/shared";
+import type * as Y from "yjs";
 import type { RoomBindings } from "@/lib/yjs/provider";
 import type { PhysicsBridge } from "@/lib/physics/engine";
+import type { SizeName } from "@/components/style/styles";
 
 export type AttractMode = "none" | "attract" | "repel";
+
+/** Set as the transaction origin for simulation writes; see RoomRefs.undo. */
+export const PHYSICS_ORIGIN = "physics";
 
 /**
  * React-visible room state. Deliberately excludes the canvas objects: physics
@@ -46,6 +51,20 @@ export type RoomState = {
   editingTextId: string | null;
   attractMode: AttractMode;
 
+  /**
+   * Style the panel edits. With a selection it mirrors the first selected
+   * object; with nothing selected it is the style newly created objects inherit.
+   */
+  styleColor: string;
+  styleSize: SizeName;
+  styleOpacity: number;
+
+  /** Mirrors the canvas zoom so the zoom control can display and drive it. */
+  zoom: number;
+
+  canUndo: boolean;
+  canRedo: boolean;
+
   /** When non-null the canvas renders this snapshot instead of live state. */
   replayObjects: CanvasObject[] | null;
 };
@@ -58,6 +77,13 @@ export type RoomState = {
 export type RoomRefs = {
   bindings: RoomBindings | null;
   physics: PhysicsBridge | null;
+  /**
+   * Scoped to the objects map and to local transactions only, so undo never
+   * reverts a collaborator's edit and never walks back a physics tick.
+   */
+  undo: Y.UndoManager | null;
+  /** Set by the canvas so zoom controls can drive the viewport imperatively. */
+  zoomTo: ((zoom: number) => void) | null;
   objects: Map<string, CanvasObject>;
   dirty: Set<string>;
   removed: Set<string>;
@@ -90,6 +116,12 @@ export function createRoomStore(roomId: string, identity: GuestIdentity) {
     selectedIds: [],
     editingTextId: null,
     attractMode: "none",
+    styleColor: "#4465e9",
+    styleSize: "m",
+    styleOpacity: 1,
+    zoom: 1,
+    canUndo: false,
+    canRedo: false,
     replayObjects: null,
   }));
 }
@@ -98,6 +130,8 @@ export function createRoomRefs(): RoomRefs {
   return {
     bindings: null,
     physics: null,
+    undo: null,
+    zoomTo: null,
     objects: new Map(),
     dirty: new Set(),
     removed: new Set(),
@@ -114,15 +148,25 @@ export function createRoomRefs(): RoomRefs {
 export function attachRoomInfra(
   refs: RoomRefs,
   bindings: RoomBindings,
-  physics: PhysicsBridge
+  physics: PhysicsBridge,
+  undo: Y.UndoManager
 ): void {
   refs.bindings = bindings;
   refs.physics = physics;
+  refs.undo = undo;
+}
+
+export function setZoomHandle(
+  refs: RoomRefs,
+  zoomTo: ((zoom: number) => void) | null
+): void {
+  refs.zoomTo = zoomTo;
 }
 
 export function detachRoomInfra(refs: RoomRefs): void {
   refs.bindings = null;
   refs.physics = null;
+  refs.undo = null;
   refs.objects.clear();
   refs.dirty.clear();
   refs.removed.clear();

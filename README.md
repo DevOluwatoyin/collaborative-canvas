@@ -87,15 +87,33 @@ PORT=1234
 ## Demo script (for judges)
 
 1. Open http://localhost:3000, enter a username, **Create a room**.
-2. Click **Invite** and open the link in a second browser / incognito window
-   (a separate profile — guest identity is per-browser, so two tabs in the same
-   browser are the same user).
-3. Add shapes, sticky notes, text; drag to move — both cursors appear live.
-4. Switch to **Physics**, enable physics on selected objects, fling them so they collide; try **attract** / **repel**.
-5. Watch the **Radar** minimap for other users' viewports.
+2. Hit **Share** (top right) and open the link in a second browser / incognito
+   window (a separate profile — guest identity is per-browser, so two tabs in the
+   same browser count as the same user).
+3. Pick a tool from the strip at the bottom, set colour / opacity / size in the
+   panel on the right, and drop objects on the canvas — both cursors appear live.
+4. Select something and **Enable physics** from the style panel, then switch to
+   the **Physics** tool and fling it so it collides.
+5. Watch the **Radar** for other users' viewports; drag it anywhere.
 6. DevTools → Network → Offline, edit the canvas, go online again — changes sync via Yjs + IndexedDB.
-7. Press **Spawn 2000** a few times to load the canvas up, then pan and zoom.
-8. Export **JSON / SVG / PNG**; open **Time Travel** and scrub / play the session history.
+7. **Menu → Spawn 2,000 shapes** a few times to load the canvas up, then pan and
+   zoom with the bottom-left control.
+8. **Menu → Export** for JSON / SVG / PNG, and **Menu → Time travel** to scrub or
+   play back the session.
+
+### Canvas UI layout
+
+| Region | Contents |
+|---|---|
+| Top left | Room name and menu (exports, time travel, radar, theme, tour) |
+| Top right | Collaborator avatars, connection state, Share |
+| Right | Style panel — colour, opacity, size, shape, physics (hidden under `md`) |
+| Bottom centre | Edit actions (undo / redo / duplicate / delete / order) above the tool strip |
+| Bottom left | Zoom out / reset / in |
+
+Keyboard: `V` select · `H` hand · `D` draw · `S` shape · `T` text · `N` note ·
+`I` image · `A` audio · `P` physics · `Ctrl/Cmd+Z` undo · `Ctrl/Cmd+Shift+Z` redo ·
+`Ctrl/Cmd+D` duplicate · `Ctrl/Cmd+A` select all · `Del` delete.
 
 ## Features checklist
 
@@ -112,6 +130,11 @@ PORT=1234
 | Offline → sync | Yes |
 | Export PNG / SVG / JSON | Yes |
 | Time travel replay | Yes (snapshot-backed op log) |
+| Undo / redo | Yes (local-only, physics excluded) |
+
+Not implemented, and deliberately absent from the UI rather than shown as dead
+controls: stroke dash and fill styles, an arrow/connector tool, align and
+distribute, and shape kinds beyond rectangle / ellipse / triangle.
 
 ## Scripts
 

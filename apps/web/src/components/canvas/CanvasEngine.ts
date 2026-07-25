@@ -4,11 +4,14 @@ import { Application, Container, Graphics } from "pixi.js";
 import type { CanvasObject, PresenceState, Tool } from "@infinite-canvas/shared";
 import { SpatialGrid } from "@/lib/spatial/grid";
 import {
-  CANVAS_BG,
+  CANVAS_THEME,
   CULL_MARGIN,
   GRID_STEP,
   INTERPOLATION_RATE,
   LOD_ZOOM_THRESHOLD,
+  MAX_ZOOM,
+  MIN_ZOOM,
+  type CanvasThemeMode,
 } from "./constants";
 import {
   createDisplay,
@@ -73,6 +76,7 @@ export class CanvasEngine {
   private visible = new Set<string>();
   private viewportDirty = true;
   private selectionDirty = true;
+  private themeMode: CanvasThemeMode = "light";
 
   /** Stable lookup handed to geometry/overlay helpers. */
   private readonly lookup: ObjectLookup = {
@@ -113,10 +117,11 @@ export class CanvasEngine {
     return this.ready && !this.destroyed;
   }
 
-  async init(host: HTMLElement) {
+  async init(host: HTMLElement, theme: CanvasThemeMode = "light") {
+    this.themeMode = theme;
     await this.app.init({
       resizeTo: host,
-      background: CANVAS_BG,
+      background: CANVAS_THEME[theme].background,
       antialias: true,
       resolution: Math.min(window.devicePixelRatio || 1, 2),
       autoDensity: true,
@@ -150,6 +155,14 @@ export class CanvasEngine {
 
   setTool(tool: Tool) {
     this.tool = tool;
+  }
+
+  setTheme(theme: CanvasThemeMode) {
+    if (this.themeMode === theme) return;
+    this.themeMode = theme;
+    if (!this.ready) return;
+    this.app.renderer.background.color = CANVAS_THEME[theme].background;
+    this.markViewportDirty();
   }
 
   setSelectedIds(ids: string[]) {
@@ -235,6 +248,23 @@ export class CanvasEngine {
     return screenToWorld(this.viewport, sx, sy);
   }
 
+  /** Zooms about the viewport centre, as a zoom control is expected to. */
+  setZoom(zoom: number) {
+    const next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom));
+    if (next === this.viewport.zoom) return;
+    const screenW = this.ready ? this.app.screen.width : 0;
+    const screenH = this.ready ? this.app.screen.height : 0;
+    const before = this.screenToWorld(screenW / 2, screenH / 2);
+    this.viewport.zoom = next;
+    this.applyViewport();
+    const after = this.screenToWorld(screenW / 2, screenH / 2);
+    this.viewport.x += (after.x - before.x) * next;
+    this.viewport.y += (after.y - before.y) * next;
+    this.applyViewport();
+    this.callbacks.onViewportChange({ ...this.viewport });
+    this.markViewportDirty();
+  }
+
   getWorldBounds() {
     if (!this.ready || !this.app.screen) {
       return { x: 0, y: 0, width: 800, height: 600, zoom: this.viewport.zoom };
@@ -282,7 +312,7 @@ export class CanvasEngine {
     const lod = zoom < LOD_ZOOM_THRESHOLD;
 
     if (this.viewportDirty) {
-      drawWorldGrid(this.grid, bounds, zoom, GRID_STEP);
+      drawWorldGrid(this.grid, bounds, zoom, GRID_STEP, CANVAS_THEME[this.themeMode].grid);
     }
 
     const margin = CULL_MARGIN / Math.max(zoom, 0.05);

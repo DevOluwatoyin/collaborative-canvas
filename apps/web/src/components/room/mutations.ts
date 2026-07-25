@@ -5,6 +5,7 @@ import {
   propStrokes,
   type CanvasObject,
   type GuestIdentity,
+  type HistoryOp,
   type PathPoint,
   type ShapeKind,
   type Tool,
@@ -27,6 +28,42 @@ import type { PhysicsBridge } from "@/lib/physics/engine";
 import { pickFile, recordAudioBrief } from "./media";
 
 type Actor = Pick<GuestIdentity, "id" | "username">;
+
+/** The style newly created objects inherit from the style panel. */
+export type ObjectStyle = {
+  color: string;
+  fontSize: number;
+  strokeWidth: number;
+  opacity: number;
+};
+
+/** Picks black or white body text for a filled shape by perceived lightness. */
+export function readableTextOn(hex: string): string {
+  const clean = hex.replace("#", "");
+  const full =
+    clean.length === 3
+      ? clean
+          .split("")
+          .map((c) => c + c)
+          .join("")
+      : clean;
+  const value = Number.parseInt(full, 16);
+  if (!Number.isFinite(value)) return "#ffffff";
+  const r = (value >> 16) & 255;
+  const g = (value >> 8) & 255;
+  const b = value & 255;
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.62 ? "#1d1d1d" : "#ffffff";
+}
+
+/**
+ * Puts new objects on top without scanning every object's zIndex. A timestamp is
+ * monotonic per client and good enough for paint order; ties across clients are
+ * resolved arbitrarily but consistently, since every peer sorts the same values.
+ */
+function nextZIndex(): number {
+  return Date.now();
+}
 
 export function updateRoomObject(
   bindings: RoomBindings,
@@ -92,7 +129,8 @@ export function createPathFromStroke(
   bindings: RoomBindings,
   actor: Actor,
   points: PathPoint[],
-  targetShapeId: string | null
+  targetShapeId: string | null,
+  style: ObjectStyle
 ): string | null {
   if (points.length < 2) return null;
 
@@ -132,12 +170,13 @@ export function createPathFromStroke(
     y: minY,
     width: Math.max(8, maxX - minX),
     height: Math.max(8, maxY - minY),
-    zIndex: Date.now(),
+    zIndex: nextZIndex(),
+    opacity: style.opacity,
     createdBy: actor.id,
     props: {
       points: points.map((p) => ({ x: p.x - minX, y: p.y - minY })),
-      stroke: "#1a2330",
-      strokeWidth: 3,
+      stroke: style.color,
+      strokeWidth: style.strokeWidth,
     },
   });
   createRoomObject(bindings, actor, obj);
@@ -170,6 +209,7 @@ export async function createObjectAt(
   opts: {
     tool: Tool;
     shapeKind: ShapeKind;
+    style: ObjectStyle;
     forceType?: CanvasObject["type"];
     hitId?: string | null;
   }
@@ -203,22 +243,26 @@ export async function createObjectAt(
   let width = 160;
   let height = 120;
 
+  const { color, fontSize } = opts.style;
+
   if (type === "text") {
-    props = { text: "Text", color: "#1a2330", fontSize: 28 };
+    props = { text: "Text", color, fontSize };
     width = 220;
-    height = 48;
+    height = Math.max(48, Math.round(fontSize * 1.7));
   } else if (type === "shape") {
     props = {
       shape: opts.shapeKind,
-      fill: ["#3B82F6", "#E85D4C", "#2BB673", "#F59E0B"][Math.floor(Math.random() * 4)],
+      fill: color,
       text: "",
-      textColor: "#ffffff",
-      fontSize: 18,
+      textColor: readableTextOn(color),
+      fontSize,
     };
   } else if (type === "sticky") {
+    // Stickies stay on a pale paper tint; the picked colour would swamp the note.
     props = {
       text: "New idea…",
       color: ["#FDE68A", "#F9A8D4", "#A5F3FC", "#BBF7D0"][Math.floor(Math.random() * 4)],
+      fontSize,
     };
     width = 180;
     height = 160;
@@ -243,7 +287,8 @@ export async function createObjectAt(
     y: world.y - height / 2,
     width,
     height,
-    zIndex: Date.now(),
+    zIndex: nextZIndex(),
+    opacity: opts.style.opacity,
     createdBy: actor.id,
     props,
     physics: createDefaultPhysics(opts.tool === "physics"),
@@ -284,6 +329,105 @@ export function flingRoomObject(
     });
   });
   physics?.applyImpulse(id, vx, vy);
+}
+
+const DUPLICATE_OFFSET = 24;
+
+/** Copies objects with fresh ids, nudged so the copy is visibly on top. */
+export function duplicateRoomObjects(
+  bindings: RoomBindings,
+  actor: Actor,
+  ids: readonly string[]
+): string[] {
+  const created: string[] = [];
+  bindings.doc.transact(() => {
+    for (const id of ids) {
+      const source = bindings.objects.get(id);
+      if (!source) continue;
+      const original = readObject(source);
+      const copy = createCanvasObject({
+        ...original,
+        id: nanoid(10),
+        x: original.x + DUPLICATE_OFFSET,
+        y: original.y + DUPLICATE_OFFSET,
+        zIndex: nextZIndex(),
+        createdBy: actor.id,
+        props: { ...original.props },
+      });
+      upsertYObject(bindings.objects, copy);
+      appendHistory(
+        bindings.history,
+        historyOpFromCreate(copy, actor.id, actor.username)
+      );
+      created.push(copy.id);
+    }
+  });
+  return created;
+}
+
+/**
+ * Moves objects to the front or back of the paint order. zIndex is a plain
+ * number, so this only has to clear the current extreme.
+ */
+export function reorderRoomObjects(
+  bindings: RoomBindings,
+  actor: Actor,
+  ids: readonly string[],
+  edge: "front" | "back"
+): void {
+  if (ids.length === 0) return;
+  let min = Infinity;
+  let max = -Infinity;
+  bindings.objects.forEach((y) => {
+    const z = Number(y.get("zIndex") ?? 0);
+    if (z < min) min = z;
+    if (z > max) max = z;
+  });
+  if (!Number.isFinite(min) || !Number.isFinite(max)) return;
+
+  bindings.doc.transact(() => {
+    ids.forEach((id, index) => {
+      const zIndex = edge === "front" ? max + 1 + index : min - 1 - index;
+      updateRoomObject(bindings, actor, id, { zIndex });
+    });
+  });
+}
+
+/**
+ * Records what an undo or redo actually changed as one batch op, so Time Travel
+ * stays a truthful log. Without this the op log would still contain the create
+ * that an undo just reverted, and replay would show a phantom object.
+ */
+export function recordUndoDiff(
+  bindings: RoomBindings,
+  actor: Actor,
+  before: Map<string, CanvasObject>,
+  after: Map<string, CanvasObject>,
+  label: "undo" | "redo"
+): void {
+  const ops: HistoryOp[] = [];
+  for (const [id, previous] of before) {
+    const current = after.get(id);
+    if (!current) {
+      ops.push(historyOpFromDelete(id, actor.id, actor.username));
+    } else if (current !== previous) {
+      ops.push(historyOpFromUpdate(id, current, actor.id, actor.username));
+    }
+  }
+  for (const [id, current] of after) {
+    if (!before.has(id)) {
+      ops.push(historyOpFromCreate(current, actor.id, actor.username));
+    }
+  }
+  if (ops.length === 0) return;
+  appendHistory(bindings.history, {
+    id: `h-${nanoid(10)}`,
+    type: "batch",
+    payload: { ops, label },
+    userId: actor.id,
+    username: actor.username,
+    timestamp: Date.now(),
+  });
 }
 
 /**

@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { useStore } from "zustand";
-import type * as Y from "yjs";
+import * as Y from "yjs";
 import type { CanvasObject } from "@infinite-canvas/shared";
 import { ensureGuestIdentity } from "@/lib/auth/guest";
 import {
@@ -46,6 +46,12 @@ import { useHostLoop } from "./useHostLoop";
  * directly — so panels settle at ~5Hz instead of ~20Hz.
  */
 const UI_REFRESH_MS = 200;
+
+/**
+ * Consecutive local changes inside this window collapse into one undo step, so a
+ * drag is a single undo rather than one per pointer move.
+ */
+const UNDO_CAPTURE_MS = 500;
 
 type RoomContextValue = {
   store: RoomStore;
@@ -140,7 +146,13 @@ function useRoomWiring({ store, refs }: RoomContextValue) {
     const { roomId, identity } = store.getState();
     const bindings = createRoomBindings(roomId, identity);
     const physics = createPhysicsBridge();
-    attachRoomInfra(refs, bindings, physics);
+    // Scoped to the objects map so undo never rewinds the op log, and to local
+    // (null-origin) transactions so it never reverts a collaborator's edit or a
+    // physics tick — those carry an explicit origin.
+    const undoManager = new Y.UndoManager(bindings.objects, {
+      captureTimeout: UNDO_CAPTURE_MS,
+    });
+    attachRoomInfra(refs, bindings, physics, undoManager);
 
     let uiTimer: ReturnType<typeof setTimeout> | null = null;
     let pendingRevision = false;
@@ -212,7 +224,17 @@ function useRoomWiring({ store, refs }: RoomContextValue) {
     const onOnline = () => store.setState({ online: true });
     const onOffline = () => store.setState({ online: false });
 
+    const onUndoStack = () => {
+      store.setState({
+        canUndo: undoManager.canUndo(),
+        canRedo: undoManager.canRedo(),
+      });
+    };
+
     bindings.objects.observeDeep(onObjects);
+    undoManager.on("stack-item-added", onUndoStack);
+    undoManager.on("stack-item-popped", onUndoStack);
+    undoManager.on("stack-cleared", onUndoStack);
     bindings.history.observe(onHistory);
     bindings.meta.observe(onMeta);
     bindings.awareness.on("change", onPresence);
@@ -238,6 +260,10 @@ function useRoomWiring({ store, refs }: RoomContextValue) {
     return () => {
       if (uiTimer) clearTimeout(uiTimer);
       bindings.objects.unobserveDeep(onObjects);
+      undoManager.off("stack-item-added", onUndoStack);
+      undoManager.off("stack-item-popped", onUndoStack);
+      undoManager.off("stack-cleared", onUndoStack);
+      undoManager.destroy();
       bindings.history.unobserve(onHistory);
       bindings.meta.unobserve(onMeta);
       bindings.awareness.off("change", onPresence);

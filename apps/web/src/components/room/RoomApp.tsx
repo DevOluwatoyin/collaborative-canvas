@@ -8,10 +8,14 @@ import {
   useRoomState,
 } from "@/components/room/RoomStoreProvider";
 import { CanvasStage } from "@/components/canvas/CanvasStage";
-import { Toolbar } from "@/components/toolbar/Toolbar";
+import { ToolStrip } from "@/components/toolbar/ToolStrip";
+import { ActionsBar } from "@/components/toolbar/ActionsBar";
+import { ZoomControl } from "@/components/toolbar/ZoomControl";
+import { StylePanel } from "@/components/style/StylePanel";
+import { MainMenu } from "@/components/menu/MainMenu";
+import { ShareBar } from "@/components/room/ShareBar";
 import { Minimap } from "@/components/minimap/Minimap";
 import { ReplayPanel } from "@/components/replay/ReplayPanel";
-import { StatusBar } from "@/components/room/StatusBar";
 import {
   OnboardingWizard,
   resetOnboarding,
@@ -33,6 +37,7 @@ const TOOL_SHORTCUTS: Record<string, Tool> = {
 function RoomInner() {
   const [replayOpen, setReplayOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
+  const [radarVisible, setRadarVisible] = useState(true);
   const actions = useRoomActions();
   const selectedCount = useRoomState((s) => s.selectedIds.length);
   const objectCount = useRoomState((s) => s.objectCount);
@@ -54,18 +59,39 @@ function RoomInner() {
         return;
       }
 
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "a") {
+      const mod = e.metaKey || e.ctrlKey;
+      const key = e.key.toLowerCase();
+
+      if (mod && key === "z") {
+        e.preventDefault();
+        if (e.shiftKey) actions.redo();
+        else actions.undo();
+        return;
+      }
+      if (mod && key === "y") {
+        e.preventDefault();
+        actions.redo();
+        return;
+      }
+      if (mod && key === "a") {
         e.preventDefault();
         actions.selectAll();
         return;
       }
+      if (mod && key === "d") {
+        e.preventDefault();
+        actions.duplicateSelected();
+        return;
+      }
 
-      const tool = TOOL_SHORTCUTS[e.key.toLowerCase()];
-      if (tool && !e.metaKey && !e.ctrlKey) actions.setTool(tool);
       if (e.key === "Delete" || e.key === "Backspace") {
         e.preventDefault();
         actions.removeSelected();
+        return;
       }
+
+      const tool = TOOL_SHORTCUTS[key];
+      if (tool && !mod) actions.setTool(tool);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -76,26 +102,58 @@ function RoomInner() {
   return (
     <div className="relative h-[100dvh] w-full overflow-hidden bg-[var(--canvas-bg)]">
       <CanvasStage />
-      <Toolbar
-        onOpenReplay={() => setReplayOpen(true)}
-        onOpenTour={() => {
-          resetOnboarding();
-          setTourOpen(true);
-        }}
-      />
-      {!replayOpen && <Minimap />}
-      <StatusBar />
-      {allSelected && (
-        <div className="pointer-events-none absolute left-1/2 top-[4.75rem] z-20 -translate-x-1/2 rounded-full bg-[var(--accent)]/90 px-3 py-1 text-xs font-semibold text-[#06201d]">
-          All {objectCount} objects selected — drag to move · handles to resize · Delete
-          to remove
+
+      {/* Chrome floats over the canvas; each cluster owns one corner or edge and
+          is pointer-transparent between panels so the canvas stays reachable. */}
+      <div className="pointer-events-none absolute inset-0 z-20">
+        <div className="absolute left-3 top-3 flex items-start gap-2">
+          <MainMenu
+            onOpenReplay={() => setReplayOpen(true)}
+            onOpenTour={() => {
+              resetOnboarding();
+              setTourOpen(true);
+            }}
+            radarVisible={radarVisible}
+            onToggleRadar={() => setRadarVisible((v) => !v)}
+          />
         </div>
-      )}
-      {replayOpen && (
-        <div className="pointer-events-none absolute left-3 top-20 z-20 rounded-full bg-amber-500/90 px-3 py-1 text-xs font-semibold text-[#1a1508]">
-          Replay mode — canvas shows history
+
+        <div className="absolute right-3 top-3">
+          <ShareBar />
         </div>
-      )}
+
+        {!replayOpen && (
+          <div className="absolute right-3 top-[4.75rem] hidden md:block">
+            <StylePanel />
+          </div>
+        )}
+
+        {allSelected && (
+          <div className="ui-card absolute left-1/2 top-3 -translate-x-1/2 px-3 py-1.5 text-[12px] font-medium">
+            All {objectCount.toLocaleString()} objects selected
+          </div>
+        )}
+
+        {replayOpen && (
+          <div className="ui-card absolute left-1/2 top-3 -translate-x-1/2 px-3 py-1.5 text-[12px] font-semibold text-amber-600 dark:text-amber-300">
+            Replay mode — canvas shows history
+          </div>
+        )}
+
+        {/* Narrow viewports stack the zoom pill above the centred toolbars,
+            which grow wide enough to reach the left edge. */}
+        <div className="absolute bottom-[7.5rem] left-3 sm:bottom-3">
+          <ZoomControl />
+        </div>
+
+        <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 flex-col items-center gap-2">
+          <ActionsBar />
+          <ToolStrip />
+        </div>
+
+        {radarVisible && !replayOpen && <Minimap />}
+      </div>
+
       {replayOpen && <ReplayPanel onClose={() => setReplayOpen(false)} />}
       {tourOpen && <OnboardingWizard onClose={() => setTourOpen(false)} />}
     </div>

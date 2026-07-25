@@ -19,6 +19,20 @@ html.light {
   --shadow: 0 12px 40px rgba(26, 35, 48, 0.12);
   --font-display: "Fraunces", "Iowan Old Style", Georgia, serif;
   --font-body: "Sora", "Segoe UI", system-ui, sans-serif;
+
+  /* Canvas chrome: crisp floating cards rather than translucent glass, so
+     panels stay legible over arbitrary canvas content. */
+  --ui-bg: #ffffff;
+  --ui-fg: #1d1d1d;
+  --ui-border: rgba(0, 0, 0, 0.06);
+  --ui-hover: rgba(0, 0, 0, 0.05);
+  --ui-active: rgba(0, 0, 0, 0.09);
+  --ui-selected: #3b82f6;
+  --ui-selected-fg: #ffffff;
+  --ui-divider: rgba(0, 0, 0, 0.07);
+  --ui-radius: 13px;
+  --ui-radius-sm: 9px;
+  --ui-elevation: 0 1px 2px rgba(0, 0, 0, 0.05), 0 1px 12px rgba(0, 0, 0, 0.08);
   color-scheme: light;
 }
 
@@ -38,6 +52,16 @@ html.dark {
   --canvas-bg: #f7f8fa;
   --canvas-grid: #e2e6ec;
   --shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+
+  --ui-bg: #212529;
+  --ui-fg: #f4f6f8;
+  --ui-border: rgba(255, 255, 255, 0.08);
+  --ui-hover: rgba(255, 255, 255, 0.08);
+  --ui-active: rgba(255, 255, 255, 0.14);
+  --ui-selected: #4b8bf5;
+  --ui-selected-fg: #ffffff;
+  --ui-divider: rgba(255, 255, 255, 0.1);
+  --ui-elevation: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 14px rgba(0, 0, 0, 0.45);
   color-scheme: dark;
 }
 
@@ -117,4 +141,160 @@ input {
 
 .ui-input:focus {
   box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent) 55%, transparent);
+}
+
+/* ---------------------------------------------------------------------------
+   Canvas chrome primitives
+   --------------------------------------------------------------------------- */
+
+.ui-card {
+  background: var(--ui-bg);
+  color: var(--ui-fg);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+  box-shadow: var(--ui-elevation);
+}
+
+/* Square icon button. 40px is the comfortable pointer target the reference UI
+   uses, dropping to 36px on small screens where toolbar width is scarce. */
+.ui-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: var(--ui-radius-sm);
+  color: var(--ui-fg);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.ui-icon-btn:hover:not(:disabled) {
+  background: var(--ui-hover);
+}
+
+.ui-icon-btn:active:not(:disabled) {
+  background: var(--ui-active);
+}
+
+.ui-icon-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.ui-icon-btn[aria-pressed="true"],
+.ui-icon-btn[data-selected="true"] {
+  background: var(--ui-selected);
+  color: var(--ui-selected-fg);
+}
+
+.ui-icon-btn:focus-visible,
+.ui-swatch:focus-visible {
+  outline: 2px solid var(--ui-selected);
+  outline-offset: 2px;
+}
+
+@media (max-width: 640px) {
+  .ui-icon-btn {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+.ui-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 10px;
+  border: none;
+  border-radius: var(--ui-radius-sm);
+  background: transparent;
+  color: var(--ui-fg);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ui-menu-item:hover:not(:disabled) {
+  background: var(--ui-hover);
+}
+
+.ui-menu-item:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.ui-divider {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--ui-divider);
+}
+
+.ui-swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+
+/* The selected swatch gets a ring in the panel background colour so it reads as
+   a halo rather than a border colour change. */
+.ui-swatch[data-selected="true"] {
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.12),
+    0 0 0 2px var(--ui-bg),
+    0 0 0 4px var(--ui-selected);
+}
+
+.ui-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: color-mix(in oklab, var(--ui-fg) 62%, transparent);
+}
+
+.ui-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 20px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.ui-range::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--ui-active);
+}
+
+.ui-range::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--ui-active);
+}
+
+.ui-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -6px;
+  border-radius: 999px;
+  background: var(--ui-bg);
+  box-shadow: 0 0 0 1.5px var(--ui-fg);
+}
+
+.ui-range::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--ui-fg);
+  border-radius: 999px;
+  background: var(--ui-bg);
 }

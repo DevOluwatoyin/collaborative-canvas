@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Fraunces, Sora } from "next/font/google";
-import Script from "next/script";
 import { ThemeProvider } from "@/lib/theme/ThemeProvider";
 import "./globals.css";
 
@@ -29,8 +28,18 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${display.variable} ${body.variable}`} suppressHydrationWarning>
+      <head>
+        {/*
+          Stamps the stored theme onto <html> before first paint so the canvas and
+          panels never flash the wrong palette. It has to be a plain blocking
+          script in <head>: next/script's beforeInteractive strategy renders a
+          script element inside the component tree, which React refuses to execute
+          on the client and warns about.
+        */}
+        {/* eslint-disable-next-line @next/next/no-sync-scripts */}
+        <script src="/theme-boot.js" />
+      </head>
       <body className="antialiased">
-        <Script id="theme-boot" src="/theme-boot.js" strategy="beforeInteractive" />
         <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>

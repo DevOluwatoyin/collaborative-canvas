@@ -35,9 +35,13 @@ export function exportSVG(objects: CanvasObject[], roomId: string) {
 
   const sorted = [...objects].sort((a, b) => a.zIndex - b.zIndex);
   for (const o of sorted) {
-    const rot = o.rotation
-      ? ` transform="rotate(${o.rotation} ${o.x + o.width / 2} ${o.y + o.height / 2})"`
-      : "";
+    const opacity = o.opacity ?? 1;
+    if (opacity <= 0) continue;
+    const alpha = opacity < 1 ? ` opacity="${opacity}"` : "";
+    const rot =
+      (o.rotation
+        ? ` transform="rotate(${o.rotation} ${o.x + o.width / 2} ${o.y + o.height / 2})"`
+        : "") + alpha;
     if (o.type === "shape") {
       const kind = propString(o.props, "shape", "rect");
       const fill = escapeXml(propString(o.props, "fill", "#3B82F6"));

@@ -75,14 +75,15 @@ export function drawWorldGrid(
   gfx: Graphics,
   bounds: { x: number; y: number; width: number; height: number },
   zoom: number,
-  step: number
+  step: number,
+  color: number
 ) {
   gfx.clear();
   const startX = Math.floor(bounds.x / step) * step - step;
   const startY = Math.floor(bounds.y / step) * step - step;
   const endX = bounds.x + bounds.width + step;
   const endY = bounds.y + bounds.height + step;
-  gfx.setStrokeStyle({ width: 1 / zoom, color: 0xd8dde5, alpha: 1 });
+  gfx.setStrokeStyle({ width: 1 / zoom, color, alpha: 1 });
   for (let x = startX; x < endX; x += step) {
     gfx.moveTo(x, startY);
     gfx.lineTo(x, endY);

@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { foldHistory } from "@/lib/yjs/provider";
 import { patchYObject } from "@/lib/yjs/objects";
-import type { RoomRefs, RoomStore } from "./store";
+import { PHYSICS_ORIGIN, type RoomRefs, type RoomStore } from "./store";
 
 /** Physics positions are published at ~20Hz; clients interpolate between them. */
 const PUBLISH_INTERVAL_MS = 50;
@@ -46,6 +46,8 @@ export function useHostLoop(store: RoomStore, refs: RoomRefs) {
       lastPublish = now;
 
       const updates = physics.readState();
+      // PHYSICS_ORIGIN keeps simulation writes out of the undo stack: the
+      // UndoManager only tracks null-origin (direct user) transactions.
       bindings.doc.transact(() => {
         for (const [id, next] of updates) {
           const current = refs.objects.get(id);
@@ -67,7 +69,7 @@ export function useHostLoop(store: RoomStore, refs: RoomRefs) {
             vy: next.vy,
           });
         }
-      });
+      }, PHYSICS_ORIGIN);
     };
 
     raf = requestAnimationFrame(tick);

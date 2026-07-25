@@ -54,6 +54,7 @@ export function readObject(y: YObject): CanvasObject {
     width: Number(y.get("width") ?? 0),
     height: Number(y.get("height") ?? 0),
     zIndex: Number(y.get("zIndex") ?? 0),
+    opacity: typeof y.get("opacity") === "number" ? (y.get("opacity") as number) : 1,
     props: readProps(y),
     physics: (y.get("physics") as CanvasObject["physics"]) ?? createDefaultPhysics(false),
     vx: Number(y.get("vx") ?? 0),

@@ -68,6 +68,15 @@ function getThemeSnapshot(): ThemeMode {
   return document.documentElement.dataset.theme === "dark" ? "dark" : "light";
 }
 
+/**
+ * Imperative read for non-React consumers (the WebGL canvas needs a palette at
+ * construction time, before any hook has run).
+ */
+export function getCurrentTheme(): ThemeMode {
+  if (typeof document === "undefined") return "light";
+  return getThemeSnapshot();
+}
+
 function getServerThemeSnapshot(): ThemeMode {
   return "light";
 }

@@ -194,8 +194,10 @@ export function Minimap() {
     <div
       ref={panelRef}
       style={style}
-      className={`ui-panel pointer-events-auto absolute z-20 overflow-hidden rounded-2xl p-2 ${
-        pos === null ? "bottom-20 right-3 sm:bottom-4 sm:right-4" : ""
+      className={`ui-card pointer-events-auto absolute z-20 overflow-hidden p-2 ${
+        // Parked above the toolbars rather than beside them: the tool strip is
+        // centred, so any fixed right offset collides at some viewport width.
+        pos === null ? "bottom-[7.5rem] right-3" : ""
       }`}
     >
       <div
@@ -208,10 +210,10 @@ export function Minimap() {
           e.preventDefault();
         }}
       >
-        <span className="ui-muted text-[10px] font-semibold uppercase tracking-wider">
-          Radar · drag
+        <span className="ui-label text-[10px] font-semibold uppercase tracking-wider">
+          Radar
         </span>
-        <span className="ui-muted text-[10px]">{remotes.length + 1} online</span>
+        <span className="ui-label text-[10px]">{remotes.length + 1} online</span>
       </div>
       <canvas
         ref={canvasRef}
