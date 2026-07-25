@@ -5,8 +5,10 @@ import * as syncProtocol from "y-protocols/sync";
 import * as awarenessProtocol from "y-protocols/awareness";
 import * as encoding from "lib0/encoding";
 import * as decoding from "lib0/decoding";
+import { handleMediaRequest, MAX_MEDIA_BYTES, MEDIA_DIR } from "./media.js";
 
 const PORT = Number(process.env.PORT || 1234);
+const ROOM_GRACE_MS = 60_000;
 const messageSync = 0;
 const messageAwareness = 1;
 
@@ -14,78 +16,112 @@ type Room = {
   doc: Y.Doc;
   awareness: awarenessProtocol.Awareness;
   clients: Set<WebSocket>;
+  /**
+   * Awareness client ids each socket owns. Needed so a dropped connection's
+   * presence can be cleared: the previous implementation compared a `conn`
+   * field that awareness states never carry, so it always matched nothing and
+   * ghost cursors lingered until the 30s outdated-state sweep.
+   */
+  controlledIds: Map<WebSocket, Set<number>>;
+  reaper?: NodeJS.Timeout;
 };
 
 const rooms = new Map<string, Room>();
 
+function broadcast(room: Room, message: Uint8Array, except?: WebSocket): void {
+  for (const client of room.clients) {
+    if (client !== except && client.readyState === WebSocket.OPEN) {
+      client.send(message);
+    }
+  }
+}
+
 function getRoom(roomName: string): Room {
-  let room = rooms.get(roomName);
-  if (!room) {
-    const doc = new Y.Doc();
-    const awareness = new awarenessProtocol.Awareness(doc);
-    room = { doc, awareness, clients: new Set() };
-    rooms.set(roomName, room);
+  const existing = rooms.get(roomName);
+  if (existing) {
+    if (existing.reaper) {
+      clearTimeout(existing.reaper);
+      existing.reaper = undefined;
+    }
+    return existing;
+  }
 
-    doc.on("update", (update: Uint8Array, origin: unknown) => {
-      const encoder = encoding.createEncoder();
-      encoding.writeVarUint(encoder, messageSync);
-      syncProtocol.writeUpdate(encoder, update);
-      const message = encoding.toUint8Array(encoder);
-      for (const client of room!.clients) {
-        if (client !== origin && client.readyState === WebSocket.OPEN) {
-          client.send(message);
-        }
-      }
-    });
+  const doc = new Y.Doc();
+  const awareness = new awarenessProtocol.Awareness(doc);
+  const room: Room = {
+    doc,
+    awareness,
+    clients: new Set(),
+    controlledIds: new Map(),
+  };
+  rooms.set(roomName, room);
 
-    awareness.on(
-      "update",
-      ({
+  doc.on("update", (update: Uint8Array, origin: unknown) => {
+    const encoder = encoding.createEncoder();
+    encoding.writeVarUint(encoder, messageSync);
+    syncProtocol.writeUpdate(encoder, update);
+    broadcast(
+      room,
+      encoding.toUint8Array(encoder),
+      origin instanceof WebSocket ? origin : undefined
+    );
+  });
+
+  awareness.on(
+    "update",
+    (
+      {
         added,
         updated,
         removed,
-      }: {
-        added: number[];
-        updated: number[];
-        removed: number[];
-      }) => {
-        const changed = added.concat(updated, removed);
-        const encoder = encoding.createEncoder();
-        encoding.writeVarUint(encoder, messageAwareness);
-        encoding.writeVarUint8Array(
-          encoder,
-          awarenessProtocol.encodeAwarenessUpdate(awareness, changed)
-        );
-        const message = encoding.toUint8Array(encoder);
-        for (const client of room!.clients) {
-          if (client.readyState === WebSocket.OPEN) {
-            client.send(message);
-          }
+      }: { added: number[]; updated: number[]; removed: number[] },
+      origin: unknown
+    ) => {
+      // Attribute awareness ids to the socket that introduced them.
+      if (origin instanceof WebSocket) {
+        let owned = room.controlledIds.get(origin);
+        if (!owned) {
+          owned = new Set();
+          room.controlledIds.set(origin, owned);
         }
+        for (const id of added) owned.add(id);
+        for (const id of removed) owned.delete(id);
       }
-    );
-  }
+
+      const changed = added.concat(updated, removed);
+      const encoder = encoding.createEncoder();
+      encoding.writeVarUint(encoder, messageAwareness);
+      encoding.writeVarUint8Array(
+        encoder,
+        awarenessProtocol.encodeAwarenessUpdate(awareness, changed)
+      );
+      broadcast(room, encoding.toUint8Array(encoder));
+    }
+  );
+
   return room;
 }
 
-function send(conn: WebSocket, message: Uint8Array) {
+function send(conn: WebSocket, message: Uint8Array): void {
   if (conn.readyState === WebSocket.OPEN) {
     conn.send(message);
   }
 }
 
-const server = http.createServer((_req, res) => {
+const server = http.createServer((req, res) => {
+  if (handleMediaRequest(req, res)) return;
   res.writeHead(200, { "Content-Type": "text/plain" });
-  res.end("Infinite Canvas collab server\n");
+  res.end("Orbitboard collab server\n");
 });
 
 const wss = new WebSocketServer({ server });
 
 wss.on("connection", (conn, req) => {
-  const url = new URL(req.url || "/", `http://${req.headers.host}`);
+  const url = new URL(req.url || "/", `http://${req.headers.host ?? "localhost"}`);
   const roomName = decodeURIComponent(url.pathname.replace(/^\//, "") || "default");
   const room = getRoom(roomName);
   room.clients.add(conn);
+  room.controlledIds.set(conn, new Set());
 
   conn.binaryType = "arraybuffer";
 
@@ -142,29 +178,32 @@ wss.on("connection", (conn, req) => {
 
   conn.on("close", () => {
     room.clients.delete(conn);
-    awarenessProtocol.removeAwarenessStates(
-      room.awareness,
-      Array.from(room.awareness.getStates().keys()).filter((clientId) => {
-        const state = room.awareness.getStates().get(clientId);
-        return state && (state as { conn?: WebSocket }).conn === conn;
-      }),
-      null
-    );
+    const owned = room.controlledIds.get(conn);
+    room.controlledIds.delete(conn);
+    if (owned && owned.size > 0) {
+      awarenessProtocol.removeAwarenessStates(
+        room.awareness,
+        Array.from(owned),
+        null
+      );
+    }
 
-    // Clean awareness for this connection by scanning controlled ids is tricky;
-    // clients clear their own awareness on unload. If room empty, keep doc warm briefly.
-    if (room.clients.size === 0) {
-      setTimeout(() => {
-        if (room.clients.size === 0) {
-          room.doc.destroy();
-          room.awareness.destroy();
-          rooms.delete(roomName);
-        }
-      }, 60_000);
+    // Keep the document warm briefly so a reload or flaky network does not
+    // discard room content, then release it.
+    if (room.clients.size === 0 && !room.reaper) {
+      room.reaper = setTimeout(() => {
+        if (room.clients.size > 0) return;
+        room.doc.destroy();
+        room.awareness.destroy();
+        rooms.delete(roomName);
+      }, ROOM_GRACE_MS);
     }
   });
 });
 
 server.listen(PORT, () => {
-  console.log(`Collab server listening on ws://localhost:${PORT}`);
+  console.info(`Collab server listening on ws://localhost:${PORT}`);
+  console.info(
+    `Media store: ${MEDIA_DIR} (max ${Math.round(MAX_MEDIA_BYTES / 1024 / 1024)}MB per upload)`
+  );
 });
