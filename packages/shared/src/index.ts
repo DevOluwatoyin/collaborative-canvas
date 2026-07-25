@@ -1,6 +1,8 @@
-export type ObjectType = "text" | "shape" | "image" | "sticky" | "audio";
+export type ObjectType = "text" | "shape" | "image" | "sticky" | "audio" | "path";
 
 export type ShapeKind = "rect" | "ellipse" | "triangle";
+
+export type PathPoint = { x: number; y: number };
 
 export type PhysicsConfig = {
   enabled: boolean;
@@ -66,7 +68,8 @@ export type Tool =
   | "sticky"
   | "image"
   | "audio"
-  | "physics";
+  | "physics"
+  | "draw";
 
 export const GUEST_COLORS = [
   "#E85D4C",
