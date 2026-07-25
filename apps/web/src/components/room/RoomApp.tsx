@@ -118,7 +118,7 @@ function RoomInner() {
           />
         </div>
 
-        <div className="absolute right-3 top-3">
+        <div className="absolute z-10 right-3 top-3">
           <ShareBar />
         </div>
 

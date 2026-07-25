@@ -57,9 +57,8 @@ export function ShareBar() {
           >
             {identity.username.slice(0, 2).toUpperCase()}
             <span
-              className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-[var(--ui-bg)] ${
-                live ? "bg-emerald-500" : "bg-amber-500"
-              }`}
+              className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-[var(--ui-bg)] ${live ? "bg-emerald-500" : "bg-amber-500"
+                }`}
             />
           </span>
           {remotes.slice(0, 3).map((r) => (
@@ -81,12 +80,15 @@ export function ShareBar() {
 
         <button
           type="button"
-          className="ui-icon-btn w-auto gap-2 px-3 text-[13px] font-semibold"
+          className="ui-icon-btn w-auto group gap-2 px-3 text-[13px] font-semibold relative"
           style={{ background: "var(--ui-selected)", color: "var(--ui-selected-fg)" }}
           onClick={() => void copyInvite()}
         >
           <ShareIcon />
-          Share
+
+          <span className="absolute hidden bg-black text-white -bottom-8 transition p-1 text-xs rounded-lg group-hover:block">
+            Share
+          </span>
         </button>
       </div>
 
