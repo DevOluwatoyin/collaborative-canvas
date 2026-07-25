@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useState, type SubmitEvent } from "react";
 import { nanoid } from "nanoid";
 import { setGuestIdentity } from "@/lib/auth/guest";
 import { useGuestIdentity } from "@/lib/auth/useGuestIdentity";
@@ -23,14 +23,14 @@ export default function HomePage() {
     return name;
   }
 
-  function onCreate(e: FormEvent) {
+  function onCreate(e: SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     ensureUser();
     const id = nanoid(10);
     router.push(`/room/${id}`);
   }
 
-  function onJoin(e: FormEvent) {
+  function onJoin(e: SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     ensureUser();
     const id = joinId.trim().replace(/^.*\//, "");

@@ -30,11 +30,6 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${display.variable} ${body.variable}`} suppressHydrationWarning>
       <body className="antialiased">
-        {/*
-          Applies the stored theme to <html> before hydration so there is no
-          flash of the wrong palette. `beforeInteractive` is injected into <head>
-          from the server regardless of where it sits in the tree.
-        */}
         <Script id="theme-boot" src="/theme-boot.js" strategy="beforeInteractive" />
         <ThemeProvider>{children}</ThemeProvider>
       </body>
