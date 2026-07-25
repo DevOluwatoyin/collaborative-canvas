@@ -1,16 +1,13 @@
 {
   "name": "infinite-canvas",
   "private": true,
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
+  "packageManager": "pnpm@9.15.0",
   "scripts": {
-    "dev": "concurrently -n web,collab -c cyan,magenta \"npm run dev -w web\" \"npm run dev -w collab-server\"",
-    "dev:web": "npm run dev -w web",
-    "dev:collab": "npm run dev -w collab-server",
-    "build": "npm run build -w web && npm run build -w collab-server",
-    "start": "concurrently -n web,collab -c cyan,magenta \"npm run start -w web\" \"npm run start -w collab-server\""
+    "dev": "concurrently -n web,collab -c cyan,magenta \"pnpm --filter web dev\" \"pnpm --filter collab-server dev\"",
+    "dev:web": "pnpm --filter web dev",
+    "dev:collab": "pnpm --filter collab-server dev",
+    "build": "pnpm --filter collab-server build && pnpm --filter web build",
+    "start": "concurrently -n web,collab -c cyan,magenta \"pnpm --filter web start\" \"pnpm --filter collab-server start\""
   },
   "devDependencies": {
     "concurrently": "^9.1.2"
