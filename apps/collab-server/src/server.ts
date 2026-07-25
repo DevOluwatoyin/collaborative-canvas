@@ -11,6 +11,7 @@ const PORT = Number(process.env.PORT || 1234);
 const ROOM_GRACE_MS = 60_000;
 const messageSync = 0;
 const messageAwareness = 1;
+const messageQueryAwareness = 3;
 
 type Room = {
   doc: Y.Doc;
@@ -168,6 +169,19 @@ wss.on("connection", (conn, req) => {
             decoding.readVarUint8Array(decoder),
             conn
           );
+          break;
+        }
+        case messageQueryAwareness: {
+          const encoder = encoding.createEncoder();
+          encoding.writeVarUint(encoder, messageAwareness);
+          encoding.writeVarUint8Array(
+            encoder,
+            awarenessProtocol.encodeAwarenessUpdate(
+              room.awareness,
+              Array.from(room.awareness.getStates().keys())
+            )
+          );
+          send(conn, encoding.toUint8Array(encoder));
           break;
         }
       }

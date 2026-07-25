@@ -1,10 +1,10 @@
-import { COLLAB_URL } from "@/lib/yjs/provider";
+import { resolveCollabUrl } from "@/lib/yjs/provider";
 import { getMediaBlob } from "./store";
 
 /** The collab server speaks both ws:// and http:// on the same host and port. */
 export function mediaHttpBase(): string {
   try {
-    const url = new URL(COLLAB_URL);
+    const url = new URL(resolveCollabUrl());
     url.protocol = url.protocol === "wss:" ? "https:" : "http:";
     url.pathname = "";
     url.search = "";

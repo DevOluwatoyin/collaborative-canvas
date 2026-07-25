@@ -211,8 +211,8 @@ export class CanvasEngine {
    */
   applyChanges(dirty: Set<string>, removed: Set<string>) {
     if (this.overlay) {
-      dirty.clear();
-      removed.clear();
+      // Leave the queues alone — live CRDT updates keep landing in refs while
+      // replay is open, and we reindex from the source map when overlay closes.
       return;
     }
     if (removed.size > 0) {

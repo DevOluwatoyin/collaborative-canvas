@@ -162,7 +162,7 @@ function RoomInner() {
 
 export function RoomApp({ roomId }: { roomId: string }) {
   return (
-    <RoomStoreProvider roomId={roomId}>
+    <RoomStoreProvider key={roomId} roomId={roomId}>
       <RoomInner />
     </RoomStoreProvider>
   );

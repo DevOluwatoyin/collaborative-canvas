@@ -174,8 +174,14 @@ function useRoomWiring({ store, refs }: RoomContextValue) {
 
     /** Materialise every object once, on load or after an IndexedDB restore. */
     const primeObjects = () => {
+      const stale = new Set(refs.objects.keys());
       resetObjects(refs);
-      bindings.objects.forEach((y) => stageObject(refs, readObject(y)));
+      bindings.objects.forEach((y) => {
+        const obj = readObject(y);
+        stale.delete(obj.id);
+        stageObject(refs, obj);
+      });
+      for (const id of stale) stageRemoval(refs, id);
       scheduleRevision();
     };
 
@@ -219,6 +225,9 @@ function useRoomWiring({ store, refs }: RoomContextValue) {
 
     const onSync = (isSynced: boolean) => {
       store.setState({ synced: isSynced });
+      // Re-materialise after the first WS sync so any updates that landed before
+      // observers were attached (or during an IndexedDB race) still reach the canvas.
+      if (isSynced) primeObjects();
     };
 
     const onOnline = () => store.setState({ online: true });

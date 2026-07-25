@@ -119,6 +119,9 @@ export function CanvasStage() {
         return;
       }
       instance.attachSource(refs.objects);
+      // Seed the dirty queue so anything already in the room paints on the first
+      // frame, even if CRDT observers fired before the engine was ready.
+      for (const id of refs.objects.keys()) refs.dirty.add(id);
       setZoomHandle(refs, (zoom) => instance.setZoom(zoom));
       instance.setTool(store.getState().tool);
       instance.setSelectedIds(store.getState().selectedIds);

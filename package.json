@@ -22,5 +22,10 @@
     "globals": "^16.4.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.65.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "yjs": "13.6.31"
+    }
   }
 }

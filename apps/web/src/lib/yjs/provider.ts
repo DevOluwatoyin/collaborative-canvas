@@ -17,6 +17,35 @@ export const COLLAB_URL =
   process.env.NEXT_PUBLIC_COLLAB_URL || "ws://localhost:1234";
 
 /**
+ * Resolves the WebSocket URL for this page load. A baked-in `localhost` URL
+ * breaks collaboration when the app is opened via a LAN IP or hostname — each
+ * peer would try to reach *its own* machine instead of the shared collab server.
+ */
+export function resolveCollabUrl(): string {
+  const configured = COLLAB_URL;
+  if (typeof window === "undefined") return configured;
+
+  try {
+    const url = new URL(configured);
+    const pageHost = window.location.hostname;
+    const isLoopback =
+      url.hostname === "localhost" ||
+      url.hostname === "127.0.0.1" ||
+      url.hostname === "[::1]";
+    const pageIsLoopback =
+      pageHost === "localhost" || pageHost === "127.0.0.1" || pageHost === "[::1]";
+
+    if (isLoopback && !pageIsLoopback) {
+      url.hostname = pageHost;
+      if (window.location.protocol === "https:") url.protocol = "wss:";
+    }
+    return url.toString().replace(/\/$/, "");
+  } catch {
+    return configured;
+  }
+}
+
+/**
  * The op log is trimmed so the CRDT document cannot grow without bound, but the
  * trimmed prefix is folded into a base snapshot first. Replay therefore always
  * reconstructs the full session: snapshot + surviving ops, never a partial
@@ -81,7 +110,7 @@ export function createRoomBindings(
 ): RoomBindings {
   const doc = new Y.Doc();
   const persistence = tryCreatePersistence(roomId, doc);
-  const provider = new WebsocketProvider(COLLAB_URL, roomId, doc, {
+  const provider = new WebsocketProvider(resolveCollabUrl(), roomId, doc, {
     connect: true,
   });
 
@@ -171,14 +200,14 @@ export function getAllObjects(objects: YObjects): CanvasObject[] {
 
 export function getRemotePresence(
   awareness: Awareness,
-  selfId: string
+  _selfUserId?: string
 ): PresenceState[] {
   const result: PresenceState[] = [];
-  awareness.getStates().forEach((state) => {
+  const localId = awareness.clientID;
+  awareness.getStates().forEach((state, clientId) => {
+    if (clientId === localId) return;
     const user = state?.user as PresenceState | undefined;
-    if (user && user.userId !== selfId) {
-      result.push(user);
-    }
+    if (user) result.push(user);
   });
   return result;
 }

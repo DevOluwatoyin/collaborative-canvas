@@ -15,6 +15,21 @@ export type YProps = Y.Map<unknown>;
 export type YObject = Y.Map<unknown>;
 export type YObjects = Y.Map<YObject>;
 
+/**
+ * Duck-type check so we still recognise Y.Maps when the bundler has loaded more
+ * than one copy of yjs (instanceof fails across constructor realms).
+ */
+function isYMap(value: unknown): value is Y.Map<unknown> {
+  return (
+    value instanceof Y.Map ||
+    (typeof value === "object" &&
+      value !== null &&
+      typeof (value as Y.Map<unknown>).get === "function" &&
+      typeof (value as Y.Map<unknown>).set === "function" &&
+      typeof (value as Y.Map<unknown>).toJSON === "function")
+  );
+}
+
 export function createYObject(obj: CanvasObject): YObject {
   const y: YObject = new Y.Map();
   for (const key of CANVAS_OBJECT_FIELDS) {
@@ -31,7 +46,7 @@ export function createYObject(obj: CanvasObject): YObject {
 
 function readProps(y: YObject): Record<string, unknown> {
   const raw = y.get("props");
-  if (raw instanceof Y.Map) return raw.toJSON();
+  if (isYMap(raw)) return raw.toJSON() as Record<string, unknown>;
   if (raw && typeof raw === "object") return { ...(raw as Record<string, unknown>) };
   return {};
 }
@@ -94,12 +109,14 @@ export function patchYObject(
       if (y.get(key) !== value) y.set(key, value);
     }
     if (patch.props) {
-      let props = y.get("props");
-      if (!(props instanceof Y.Map)) {
-        props = new Y.Map();
-        y.set("props", props);
-      }
-      const target = props as YProps;
+      const existing = y.get("props");
+      const target: YProps = isYMap(existing)
+        ? existing
+        : (() => {
+            const created: YProps = new Y.Map();
+            y.set("props", created);
+            return created;
+          })();
       for (const [key, value] of Object.entries(patch.props)) {
         if (value === undefined) continue;
         if (target.get(key) !== value) target.set(key, value);
