@@ -12,6 +12,7 @@ import {
   PlayIcon,
   SkipBackIcon,
   SkipForwardIcon,
+  MicIcon,
 } from "@/components/ui/icons";
 import { useObject, useRoomState } from "./RoomStoreProvider";
 
@@ -127,8 +128,9 @@ function PlayerPanel({ obj }: { obj: CanvasObject }) {
           onError={onError}
         />
 
-        <span className="max-w-[110px] truncate text-[13px] font-medium">
-          ♪ {label}
+        <span className="flex items-center gap-1.5 text-[13px] font-medium">
+          <MicIcon width={14} height={14} />
+          <span className="max-w-[110px] truncate">{label}</span>
         </span>
 
         {failed ? (

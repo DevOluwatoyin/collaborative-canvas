@@ -164,6 +164,9 @@ export function createRoomBindings(
     cursor: null,
     viewportCenter: { x: 0, y: 0 },
     viewport: { x: 0, y: 0, width: 800, height: 600, zoom: 1 },
+    draggingIds: [],
+    visible:
+      typeof document === "undefined" || document.visibilityState === "visible",
   } satisfies PresenceState);
 
   const bindings: RoomBindings = {

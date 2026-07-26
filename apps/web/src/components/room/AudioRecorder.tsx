@@ -11,12 +11,8 @@ function formatElapsed(ms: number): string {
 
 /**
  * Visible recording mode: opens when the audio tool places a clip, shows a live
- * timer, and stops only when asked. Replaces a silent fixed-length capture that
- * gave no indication anything was happening.
- *
- * The session is a separate component keyed by capture id so each recording
- * starts from fresh state by mounting, rather than by resetting state inside an
- * effect.
+ * timer, and stops only when asked. Keyed by capture id so each recording starts
+ * from fresh state by mounting rather than by resetting state in an effect.
  */
 export function AudioRecorder() {
   const capture = useRoomState((s) => s.audioCapture);

@@ -1,11 +1,8 @@
 /**
- * Shared test for "the user is typing right now".
- *
- * The canvas binds single-letter shortcuts to window, so every text surface has
- * to be excluded from them. Checking only `event.target` is not enough: clicking
- * the Pixi canvas moves focus to <body>, so a keystroke arriving moments later
- * reports body as the target even though a text editor is open on screen. Both
- * the event target and the active element are therefore consulted.
+ * Shared test for "the user is typing right now", used to suppress the canvas's
+ * single-letter shortcuts. Both the event target and the active element are
+ * consulted: a canvas click moves focus to <body>, so the target alone reports no
+ * text surface even while an editor is open.
  */
 export function isEditableElement(node: EventTarget | null): boolean {
   if (!(node instanceof HTMLElement)) return false;

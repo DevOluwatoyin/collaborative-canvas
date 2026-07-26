@@ -8,14 +8,10 @@ import type { CanvasEngine } from "@/components/canvas/CanvasEngine";
 const FOCUS_GRACE_MS = 600;
 
 /**
- * Text editing keeps its own local value rather than reading the object back
- * from the store.
- *
- * Room state is deliberately throttled (~5Hz) so simulation traffic cannot drive
- * React renders, but a controlled textarea fed from that snapshot lags a
- * keystroke behind and fights the caret position — typing appeared broken. The
- * textarea owns the value while it is open and pushes each edit into the CRDT,
- * so remote peers still see every keystroke.
+ * Holds its own value rather than reading the object back from the store: room
+ * state is throttled to ~5Hz, and a controlled textarea fed from that snapshot
+ * lags a keystroke behind and fights the caret. Edits still reach the CRDT
+ * immediately, so remote peers see every keystroke.
  */
 export function TextEditorOverlay({
   obj,
@@ -43,12 +39,10 @@ export function TextEditorOverlay({
   }, []);
 
   /**
-   * The click that creates a text object finishes *after* this editor mounts,
-   * and its pointerup on the canvas pulls focus back to <body>. That fired blur
-   * and closed the editor a frame after it opened — leaving keystrokes to fall
-   * through to the canvas shortcuts. A blur with no relatedTarget (focus going
-   * nowhere, rather than to something the user clicked) within that window is
-   * treated as the tail of the opening gesture and focus is reclaimed.
+   * The pointerup that created this object lands after the editor mounts and
+   * pulls focus to <body>, which would blur and close it immediately. A blur with
+   * no relatedTarget shortly after opening is that gesture, not the user leaving,
+   * so focus is reclaimed.
    */
   function handleBlur(e: FocusEvent<HTMLTextAreaElement>) {
     const spurious =

@@ -21,6 +21,7 @@ import {
   getHistoryBaseCount,
   getRemotePresence,
 } from "@/lib/yjs/provider";
+import { isSimulationHost } from "@/lib/yjs/host";
 import {
   changedObjectIds,
   migrateLegacyObjects,
@@ -58,6 +59,9 @@ const UI_REFRESH_MS = 200;
  * drag is a single undo rather than one per pointer move.
  */
 const UNDO_CAPTURE_MS = 500;
+
+/** How often host election is re-evaluated, to notice peers going stale. */
+const HOST_REELECT_MS = 2000;
 
 type RoomContextValue = {
   store: RoomStore;
@@ -170,6 +174,7 @@ function useRoomWiring({ store, refs }: RoomContextValue) {
       store.setState((state) => ({
         revision: state.revision + 1,
         objectCount: refs.objects.size,
+        physicsCount: refs.physicsIds.size,
       }));
     };
 
@@ -218,17 +223,31 @@ function useRoomWiring({ store, refs }: RoomContextValue) {
       });
     };
 
+    const isSelfVisible = () =>
+      typeof document === "undefined" || document.visibilityState === "visible";
+
     const onPresence = () => {
-      const remotes = getRemotePresence(bindings.awareness, identity.id);
-      const clientIds = Array.from(bindings.awareness.getStates().keys()).sort(
-        (a, b) => a - b
-      );
-      // Lowest awareness client id owns the simulation. Every peer computes this
-      // from the same replicated state, so exactly one of them agrees it is host.
-      const isHost =
-        clientIds.length === 0 || clientIds[0] === bindings.awareness.clientID;
-      store.setState({ remotes, isHost });
+      store.setState({
+        remotes: getRemotePresence(bindings.awareness, identity.id),
+        isHost: isSimulationHost(bindings.awareness, isSelfVisible()),
+      });
     };
+
+    /**
+     * Re-runs election on a timer as well as on presence changes: a peer going
+     * stale is the passage of time, not an event, so without this the room could
+     * sit with no acting host until something else happened to fire.
+     */
+    const reelect = setInterval(onPresence, HOST_REELECT_MS);
+
+    const onVisibility = () => {
+      bindings.awareness.setLocalStateField("user", {
+        ...(bindings.awareness.getLocalState()?.user as object),
+        visible: isSelfVisible(),
+      });
+      onPresence();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
 
     const onStatus = ({ status }: { status: string }) => {
       store.setState({ connected: status === "connected" });
@@ -295,6 +314,8 @@ function useRoomWiring({ store, refs }: RoomContextValue) {
       bindings.awareness.off("change", onPresence);
       bindings.provider.off("status", onStatus);
       bindings.provider.off("sync", onSync);
+      clearInterval(reelect);
+      document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("online", onOnline);
       window.removeEventListener("offline", onOffline);
       physics.destroy();

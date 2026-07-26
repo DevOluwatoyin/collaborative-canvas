@@ -204,7 +204,7 @@ export function updateDisplay(
     if (entry.label) {
       entry.label.visible = true;
       entry.label.style.fill = 0xe2e8f0;
-      entry.label.text = `♪ ${propString(obj.props, "label", "Audio")}`;
+      entry.label.text = propString(obj.props, "label", "Audio");
       entry.label.x = 10;
       entry.label.y = 10;
     }

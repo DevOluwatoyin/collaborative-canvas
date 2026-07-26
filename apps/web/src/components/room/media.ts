@@ -1,13 +1,10 @@
 /** Browser media helpers used when creating image/audio canvas objects. */
 
 /**
- * Opens the OS file picker and resolves with the chosen file, or null if the
- * user dismissed it.
- *
- * The input is attached to the document because some browsers ignore `click()`
- * on a detached element, and `cancel` is handled so a dismissed dialog settles
- * the promise instead of leaving the caller — and the object it was going to
- * create — pending forever.
+ * Opens the OS file picker, resolving with the chosen file or null if dismissed.
+ * The input is attached to the document because some browsers ignore `click()` on
+ * a detached element, and `cancel` is handled so a dismissed dialog settles the
+ * promise rather than leaving the caller pending forever.
  */
 export function pickFile(accept: string): Promise<File | null> {
   return new Promise((resolve) => {
@@ -53,12 +50,8 @@ export class MicrophoneError extends Error {
 const MAX_RECORDING_MS = 120_000;
 
 /**
- * Starts an open-ended recording that the caller stops explicitly.
- *
- * The previous helper recorded a fixed 2.5s with no affordance at all: clicking
- * the tool appeared to do nothing, then an audio object materialised. Length is
- * now the user's decision, with a hard cap so a forgotten session cannot grow
- * without bound.
+ * Starts an open-ended recording that the caller stops explicitly, with a hard
+ * cap so a forgotten session cannot grow without bound.
  */
 export async function startAudioRecording(): Promise<RecorderHandle> {
   if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {

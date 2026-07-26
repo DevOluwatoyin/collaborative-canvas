@@ -33,6 +33,8 @@ export type RoomState = {
 
   revision: number;
   objectCount: number;
+  /** Number of objects with an active physics body. */
+  physicsCount: number;
 
   history: HistoryOp[];
   historyBase: CanvasObject[];
@@ -124,6 +126,7 @@ export function createRoomStore(roomId: string, identity: GuestIdentity) {
     identity,
     revision: 0,
     objectCount: 0,
+    physicsCount: 0,
     history: [],
     historyBase: [],
     historyBaseCount: 0,

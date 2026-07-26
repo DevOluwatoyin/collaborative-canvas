@@ -24,7 +24,10 @@ export function ActionsBar() {
   const hasSelection = useRoomState((s) => s.selectedIds.length > 0);
 
   return (
-    <div data-tour="actions" className="ui-card pointer-events-auto flex items-center gap-0.5 p-1">
+    <div
+      data-tour="actions"
+      className="ui-card pointer-events-auto flex max-w-full flex-wrap items-center justify-center gap-0.5 p-1"
+    >
       <button
         type="button"
         className="ui-icon-btn"

@@ -16,13 +16,10 @@ type Entry = {
 /**
  * Uniform-grid spatial index over object bounds.
  *
- * A quadtree is the textbook answer here, but canvas objects move constantly
- * (physics writes positions ~20x/sec) and a quadtree pays for that with node
- * splits and merges on every move. A hash grid updates a moved object in O(1)
- * amortised, needs no rebalancing, and canvas objects are close enough in size
- * that cell occupancy stays even. Both give the same asymptotic win over the
- * linear scans this replaces: viewport culling, point hit-testing and marquee
- * selection all become proportional to what is on screen, not to object count.
+ * A hash grid rather than a quadtree because objects move constantly (physics
+ * writes positions ~20x/sec) and re-inserting is O(1) amortised with no
+ * rebalancing. Culling, point hit-testing and marquee selection become
+ * proportional to what is on screen rather than to total object count.
  */
 export class SpatialGrid {
   private readonly cell: number;

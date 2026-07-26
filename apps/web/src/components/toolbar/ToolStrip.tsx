@@ -73,11 +73,7 @@ function ToolItem({
   );
 }
 
-/**
- * Bottom-centre tool strip. Frequently used tools sit inline; the chevron opens
- * the remaining tools plus the shape kinds, which keeps the strip narrow enough
- * to survive a phone viewport.
- */
+/** Bottom-centre tool strip. The chevron switches the active shape kind. */
 export function ToolStrip() {
   const tool = useRoomState((s) => s.tool);
   const shapeKind = useRoomState((s) => s.shapeKind);
@@ -87,7 +83,10 @@ export function ToolStrip() {
     SHAPE_KINDS.find((s) => s.kind === shapeKind)?.icon ?? <SquareIcon />;
 
   return (
-    <div data-tour="tools" className="ui-card pointer-events-auto flex items-center gap-0.5 p-1">
+    <div
+      data-tour="tools"
+      className="ui-card pointer-events-auto flex max-w-full flex-wrap items-center justify-center gap-0.5 p-1"
+    >
       {PRIMARY.map((item) => (
         <ToolItem
           key={item.tool}

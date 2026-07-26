@@ -84,22 +84,28 @@ MAX_MEDIA_BYTES=8388608               # per-upload cap, default 8MB
 PORT=1234
 ```
 
-## Demo script (for judges)
+## Guided walkthrough
 
-1. Open http://localhost:3000, enter a username, **Create a room**.
-2. Hit **Share** (top right) and open the link in a second browser / incognito
-   window (a separate profile — guest identity is per-browser, so two tabs in the
-   same browser count as the same user).
-3. Pick a tool from the strip at the bottom, set colour / opacity / size in the
-   panel on the right, and drop objects on the canvas — both cursors appear live.
-4. Select something and **Enable physics** from the style panel, then switch to
-   the **Physics** tool and fling it so it collides.
-5. Watch the **Radar** for other users' viewports; drag it anywhere.
-6. DevTools → Network → Offline, edit the canvas, go online again — changes sync via Yjs + IndexedDB.
-7. **Menu → Spawn 2,000 shapes** a few times to load the canvas up, then pan and
-   zoom with the bottom-left control.
-8. **Menu → Export** for JSON / SVG / PNG, and **Menu → Time travel** to scrub or
-   play back the session.
+A route through every headline feature, useful for evaluating the project or
+smoke-testing a change.
+
+1. Open http://localhost:3000, enter a guest name, and create a room.
+2. Press **Share** (top right) and open the copied link in a second browser
+   profile or a private window. Guest identity is stored per browser profile, so
+   two tabs in the same profile are treated as one user.
+3. Choose a tool from the strip at the bottom, set colour, opacity and size in the
+   panel on the right, and place objects. Both cursors appear live, each tagged
+   with its collaborator's first name.
+4. Select an object, enable physics for it in the style panel, then switch to the
+   Physics tool and fling it into another object.
+5. Watch the radar in the bottom-left corner for other participants' viewports.
+   It can be dragged anywhere, or hidden from the main menu.
+6. Simulate a network drop (DevTools → Network → Offline), keep editing, then
+   reconnect. Changes merge through Yjs and IndexedDB.
+7. Load the canvas up via **Menu → Spawn 2,000 shapes**, then pan and zoom with
+   the bottom-left control to see culling and level-of-detail at work.
+8. Export to JSON, SVG or PNG from the menu, and open **Time travel** to scrub or
+   replay the session.
 
 ### Canvas UI layout
 
@@ -107,7 +113,7 @@ PORT=1234
 |---|---|
 | Top left | Room name and menu (exports, time travel, radar, theme, tour) |
 | Top right | Collaborator avatars, connection state, Share |
-| Right | Style panel — colour, opacity, size, corner radius, shape, text, physics (hidden under `md`) |
+| Right | Style panel — colour, opacity, size, corner radius, shape, text, physics. Toggled by the slider icon beside Share; closed by default on small screens |
 | Bottom centre | Edit actions (undo / redo / duplicate / delete / order) above the tool strip |
 | Bottom left | Zoom out / reset / in |
 
@@ -117,114 +123,136 @@ Keyboard: `V` select · `H` hand · `D` draw · `S` shape · `T` text · `N` not
 `Ctrl/Cmd+A` select all · `Del` delete.
 
 Direct manipulation: drag to move · corner and edge handles to resize · the round
-grip above the selection to rotate (hold `Shift` to snap to 15°) · double-click
-text, notes and shapes to edit their label.
+grip above the selection to rotate (with `Shift` held, rotation snaps to 15°) ·
+double-click text, notes and shapes to edit their label.
+
+## Room ids
+
+Room ids are generated, never chosen: `nanoid(10)`, so ten characters of
+`A–Z a–z 0–9 _ -`. Anything else is rejected by the room segment's layout with a
+404 before the room mounts, which keeps hand-written URLs such as `/room/test`
+from opening a socket and creating an empty document that then has to be kept
+alive. The join form on the home page applies the same check and explains the
+format inline instead of navigating to a dead page.
+
+The guard is on **format only, not on a registry**, so invite links still work for
+ids a given client has never seen — which is what makes sharing possible. The
+validator lives in `packages/shared` (`isValidRoomId`) so the client and the route
+guard cannot disagree.
 
 ## Using physics
 
 Physics is opt-in per object. An object with physics off behaves like a normal
-sticker; an object with physics on becomes a rigid body that collides with every
-other physics body in the room.
+sticker; one with physics on becomes a rigid body that collides with every other
+physics body in the room.
 
-**Turning it on**
+**Enabling it**
 
 1. Select one or more objects.
-2. In the style panel (right), under **Physics**, press **Enable on selection**.
-   The label flips to *Disable on selection* while the selection has bodies.
+2. In the style panel on the right, under **Physics**, press **Enable on
+   selection**. The label reads *Disable on selection* while the selection has
+   bodies, and a line underneath reports how many bodies are active and whether
+   this peer is the one simulating them.
 
-Nothing moves yet — the world starts with no gravity and no forces, so bodies sit
-still until something acts on them. There are three ways to make them move:
+Enabling physics alone does not produce motion: the world starts with no gravity
+and no forces, so bodies rest until something acts on them. Three controls set
+them moving:
 
 | Action | How |
 |---|---|
-| **Throw** | Switch to the **Physics** tool (`P`), then drag an object and release. Release speed becomes launch velocity. |
-| **Gravity** | Style panel → Physics → **Gravity**. Every body starts falling. |
+| **Throw** | Select the Physics tool (`P`), drag an object, and release. Release speed becomes launch velocity. |
+| **Gravity** | Style panel → Physics → **Gravity**. All bodies begin to fall. |
 | **Attract / repel** | Style panel → Physics → `attract` or `repel`. Bodies pull together or push apart continuously. |
 
 **Things worth knowing**
 
-- **You can still drag a physics object.** While your pointer is down, that body
-  is pinned to your cursor and the simulation leaves it alone; it resumes when
-  you let go. No need to disable physics first.
-- **Gravity and attract/repel are room-wide**, not per object, and they are
-  replicated — flipping gravity changes it for everyone.
-- **One peer simulates.** The lowest awareness client id is elected host; it runs
-  Matter.js and publishes positions ~20×/sec. Everyone else interpolates between
-  those updates, so all peers see the same simulation instead of each computing
-  their own and drifting apart.
-- **Physics motion is not undoable and is not recorded in the op log.** It is
-  derived state; recording a op per body per tick would swamp both.
+- **Physics objects remain draggable.** While a pointer is down the body is
+  pinned to that pointer and the simulation leaves it alone, resuming on release.
+  Physics does not need to be switched off first.
+- **Gravity and attract/repel are room-wide**, not per object, and replicated:
+  changing either affects every participant.
+- **Exactly one peer simulates.** A host is elected from the live, visible peers
+  with the lowest awareness client id. It runs Matter.js and publishes positions
+  roughly 20 times a second; the others interpolate between those updates, so all
+  participants observe the same simulation rather than each computing its own.
+  The style panel shows which side of that arrangement the current tab is on.
+- **Simulated motion is neither undoable nor recorded in the op log**, being
+  derived state — one op per body per tick would swamp both.
 - Bodies are approximated as rectangles regardless of the shape drawn.
+
+If nothing moves, the panel's status line is the place to look: `0 active bodies`
+means physics was never enabled for the selection, and `simulated by a peer` on
+every open tab means no peer is currently able to run the simulation.
 
 ## Understanding time travel
 
-Time travel is a **read-only replay of the session's edit history**. It is not
-undo, and it does not roll the room back.
+Time travel is a **read-only replay of the session's edit history**. It is neither
+undo nor a rollback of the room.
 
 Every edit — create, move, resize, restyle, delete, and each physics throw — is
-appended to a shared op log. Opening **Menu → Time travel** gives you a slider
-over that log:
+appended to a shared op log. **Menu → Time travel** opens a slider over that log:
 
-- **Step 0** is the state of the board at the start of the recorded history.
+- **Step 0** is the board at the start of the recorded history.
 - **Step N** is the board after the Nth operation.
-- Dragging the slider, or pressing **Play**, renders that reconstructed state on
-  the canvas *as an overlay*.
+- Moving the slider, or pressing **Play**, renders the reconstructed state on the
+  canvas *as an overlay*.
 
-While the panel is open the live document is untouched, and collaborators see
-nothing different — you are the only one viewing history. Closing the panel drops
-the overlay and returns you to the present. There is currently no "restore this
-state" action; to undo recent work use `Ctrl/Cmd+Z`.
+The live document is untouched while the panel is open, and collaborators see no
+change — replay is local to the tab viewing it. Closing the panel drops the
+overlay and returns to the present. There is no "restore this state" action;
+`Ctrl/Cmd+Z` covers undoing recent work.
 
-Two details that explain what you see:
+Two details explain what appears on screen:
 
-- The log is compacted once it grows past 4,000 operations: the oldest chunk is
-  folded into a **base snapshot** that step 0 represents. So a long session
-  replays from a complete board rather than from nothing, but the earliest
-  individual steps are no longer separately scrubbable. The panel shows how many
-  operations were compacted.
-- Continuous physics motion is **not** in the log — only the throw that started
-  it. Replaying a physics-heavy session shows objects jumping between recorded
-  positions rather than gliding.
+- The log is compacted once it passes 4,000 operations: the oldest chunk folds
+  into a **base snapshot**, which is what step 0 represents. A long session
+  therefore replays from a complete board rather than from nothing, though the
+  earliest individual steps are no longer separately scrubbable. The panel reports
+  how many operations were compacted.
+- Continuous physics motion is **not** logged — only the throw that started it.
+  Replaying a physics-heavy session shows objects jumping between recorded
+  positions rather than gliding between them.
 
 ## Testing offline support
 
-Offline support is real, not simulated, and you can exercise it entirely in dev.
+Offline support is genuine rather than mocked, and can be exercised entirely in
+development.
 
 ```bash
 pnpm dev
 ```
 
-**The quickest check**
+**Basic check**
 
 1. Open a room and add a few objects.
 2. DevTools → **Network** tab → throttling dropdown → **Offline**.
-3. The status pill top-right switches to offline, and a banner explains edits are
-   being kept locally.
-4. Keep working — add, move and delete objects. Everything stays responsive.
-5. Set the throttle back to **No throttling**. The banner clears and your offline
-   edits appear for other peers within a second.
+3. The indicator in the top-right corner switches to offline and a banner notes
+   that edits are being kept locally.
+4. Continue editing — adding, moving and deleting all stay responsive.
+5. Restore **No throttling**. The banner clears and the offline edits reach other
+   peers within about a second.
 
-**Proving it survives a reload**
+**Surviving a reload**
 
-1. Go offline as above and make a change.
-2. Reload the page while still offline. Your objects are still there — they were
-   restored from IndexedDB, not the server.
-3. Go back online; the local document merges with the server's.
+1. Go offline and make a change.
+2. Reload the page while still offline. The objects are still present, restored
+   from IndexedDB rather than from the server.
+3. Go back online; the local document merges with the server's copy.
 
-**Proving the merge is a real CRDT merge**
+**Confirming it is a real CRDT merge**
 
 1. Open the same room in two separate browser profiles.
 2. Take profile A offline.
 3. Edit *the same object* from both — move it in A, recolour it in B.
 4. Bring A back online. Both edits survive, because objects are stored field by
-   field rather than as one blob.
+   field rather than as a single blob.
 
 **Inspecting the local store**: DevTools → Application → IndexedDB → `room-<id>`.
 Deleting that database and reloading forces a clean re-sync from the server.
 
-> Note: the app is offline-*tolerant*, not installable. There is no service
-> worker, so a hard reload with the dev server stopped will not serve the app
-> shell — the offline guarantee covers your board data, not the assets.
+> The application is offline-*tolerant* rather than installable. There is no
+> service worker, so a hard reload with the dev server stopped will not serve the
+> app shell: the guarantee covers board data, not assets.
 
 ## Features checklist
 
@@ -269,7 +297,8 @@ Pixi effects are silent correctness bugs, not style issues.
 
 ## Deploy notes
 
-- Deploy `apps/web` to Vercel (set `NEXT_PUBLIC_COLLAB_URL` to your WS host).
+- Deploy `apps/web` to Vercel, setting `NEXT_PUBLIC_COLLAB_URL` to the collab
+  server's WebSocket host.
 - Deploy `apps/collab-server` to Railway / Fly / Render (expose `PORT`, default `1234`).
 - Use `wss://` in production, and point `MEDIA_DIR` at a persistent volume —
   media on the default tmpdir does not survive a restart.

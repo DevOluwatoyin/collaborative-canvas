@@ -95,6 +95,11 @@ export type PresenceState = {
    * object can still be repositioned by hand.
    */
   draggingIds?: string[];
+  /**
+   * Whether this peer's tab is foregrounded. Host election prefers visible peers
+   * because browsers pause animation frames in background tabs.
+   */
+  visible?: boolean;
 };
 
 export type Tool =
@@ -275,4 +280,22 @@ export function alignedX(
   if (align === "center") return (boxWidth - textWidth) / 2;
   if (align === "right") return boxWidth - textWidth - padding;
   return padding;
+}
+
+/** Length of a generated room id. Matches the nanoid call in the home page. */
+export const ROOM_ID_LENGTH = 10;
+
+const ROOM_ID_PATTERN = /^[A-Za-z0-9_-]{10}$/;
+
+/**
+ * Room ids are generated, never chosen. Validating the shape keeps typo'd and
+ * hand-written URLs (`/room/test`) out of the app: they would otherwise create a
+ * real empty document on the collab server, so every stray URL became a room
+ * that then had to be kept alive.
+ *
+ * Invite links still work for ids this client has never seen — the guard is on
+ * format, not on a registry, which is what keeps sharing possible.
+ */
+export function isValidRoomId(value: string): boolean {
+  return ROOM_ID_PATTERN.test(value);
 }

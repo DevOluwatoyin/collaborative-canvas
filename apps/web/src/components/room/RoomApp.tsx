@@ -19,7 +19,7 @@ import { ShareBar } from "@/components/room/ShareBar";
 import { AudioRecorder } from "@/components/room/AudioRecorder";
 import { AudioPlayerBar } from "@/components/room/AudioPlayer";
 import { Minimap } from "@/components/minimap/Minimap";
-import { FitViewIcon } from "@/components/ui/icons";
+import { FitViewIcon, SlidersIcon } from "@/components/ui/icons";
 import { ReplayPanel } from "@/components/replay/ReplayPanel";
 import {
   OnboardingWizard,
@@ -43,6 +43,12 @@ function RoomInner() {
   const [replayOpen, setReplayOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
   const [radarVisible, setRadarVisible] = useState(true);
+  // Open on wide viewports, closed on phones where it would cover the canvas.
+  // Read once at mount: this component only ever renders client-side, after the
+  // guest-name gate.
+  const [panelOpen, setPanelOpen] = useState(
+    () => typeof window === "undefined" || window.innerWidth >= 768
+  );
   const actions = useRoomActions();
   const { store } = useRoomHandles();
   const selectedCount = useRoomState((s) => s.selectedIds.length);
@@ -137,13 +143,28 @@ function RoomInner() {
           />
         </div>
 
-        <div className="absolute z-10 right-3 top-3">
+        <div className="absolute right-3 top-3 z-30 flex items-start gap-2">
+          {!replayOpen && (
+            <button
+              type="button"
+              className="ui-card ui-icon-btn pointer-events-auto"
+              title={panelOpen ? "Hide style panel" : "Show style panel"}
+              aria-label={panelOpen ? "Hide style panel" : "Show style panel"}
+              aria-pressed={panelOpen}
+              onClick={() => setPanelOpen((v) => !v)}
+            >
+              <SlidersIcon />
+            </button>
+          )}
           <ShareBar />
         </div>
 
-        {!replayOpen && (
-          <div className="absolute right-3 top-[4.75rem] z-20 hidden md:block">
-            <StylePanel />
+        {/* The style panel is dismissible on every breakpoint. It used to be
+            hidden outright below `md`, which put colour, text and physics out of
+            reach on a phone entirely. */}
+        {!replayOpen && panelOpen && (
+          <div className="absolute right-3 top-[4.75rem] z-20">
+            <StylePanel onClose={() => setPanelOpen(false)} />
           </div>
         )}
 
@@ -185,7 +206,10 @@ function RoomInner() {
           <ZoomControl />
         </div>
 
-        <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 flex-col items-center gap-2">
+        {/* Narrow screens cannot fit nine tools plus the actions row on one
+            line, so the cluster is allowed to shrink and the tool strip wraps
+            within the available width instead of overflowing the viewport. */}
+        <div className="absolute inset-x-2 bottom-3 flex flex-col items-center gap-2 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2">
           <ActionsBar />
           <ToolStrip />
         </div>

@@ -40,14 +40,11 @@ export type { ViewportState, CanvasEngineCallbacks } from "./types";
 /**
  * Renders the canvas from a mutable object map owned by the room, outside React.
  *
- * The previous implementation rebuilt its object cache and re-issued every
- * visible object's draw calls twice per animation frame, so cost scaled with
- * total object count at 60fps regardless of what changed. Now:
- *   - `applyChanges` only touches objects the CRDT actually reported,
- *   - a spatial index answers culling and hit-testing in view-proportional time,
- *   - a display is redrawn only when its object or selection state changed,
- *   - physics-driven objects interpolate toward their last published position so
- *     20Hz network updates still look smooth at 60fps.
+ * Per-frame cost tracks what changed and what is on screen rather than the total
+ * object count: `applyChanges` drains the CRDT's change queue, a spatial index
+ * drives culling and hit-testing, and a display is redrawn only when its object
+ * or selection state changed. Physics bodies interpolate toward their last
+ * published position so 20Hz updates read as smooth motion.
  */
 export class CanvasEngine {
   app: Application;

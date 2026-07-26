@@ -18,6 +18,7 @@ import {
   AlignRightIcon,
   BoldIcon,
   ChevronUpIcon,
+  CloseIcon,
   ItalicIcon,
   CircleIcon,
   SquareIcon,
@@ -48,16 +49,12 @@ const SHAPE_ICONS = [
 ];
 
 /**
- * Right-hand style panel. It edits the selection when there is one and otherwise
- * edits the style that new objects inherit — so it is never inert, which is why
- * it can stay mounted rather than appearing only on selection.
- *
- * Every control here maps to a property the renderers and exporters actually
- * honour. Dash and fill styles are deliberately absent: the shape renderer has no
- * stroke-pattern support, and a row of controls that changed nothing would be
- * worse than no row.
+ * Right-hand style panel. Edits the selection when there is one, otherwise the
+ * style new objects inherit, so it is never inert. Every control maps to a
+ * property the renderers and exporters honour; dash and fill styles are absent
+ * because the shape renderer has no stroke-pattern support.
  */
-export function StylePanel() {
+export function StylePanel({ onClose }: { onClose?: () => void }) {
   const actions = useRoomActions();
   const selectedIds = useRoomState((s) => s.selectedIds);
   const tool = useRoomState((s) => s.tool);
@@ -68,6 +65,8 @@ export function StylePanel() {
   const styleCornerRadius = useRoomState((s) => s.styleCornerRadius);
   const attractMode = useRoomState((s) => s.attractMode);
   const gravity = useRoomState((s) => s.gravity);
+  const physicsCount = useRoomState((s) => s.physicsCount);
+  const isHost = useRoomState((s) => s.isHost);
   const selected = useObject(selectedIds[0] ?? null);
   const physicsOnSelection = selected?.physics?.enabled === true;
 
@@ -124,8 +123,23 @@ export function StylePanel() {
     // could not be clicked at all.
     <div
       data-tour="style"
-      className="ui-card ui-noscrollbar pointer-events-auto max-h-[calc(100dvh-6.5rem)] w-[196px] overflow-y-auto p-3"
+      className="ui-card ui-noscrollbar pointer-events-auto max-h-[calc(100dvh-6.5rem)] w-[196px] max-w-[calc(100vw-1.5rem)] overflow-y-auto p-3"
     >
+      {onClose && (
+        <div className="mb-1 flex items-center justify-between md:hidden">
+          <span className="ui-label font-semibold">Style</span>
+          <button
+            type="button"
+            className="ui-icon-btn h-7 w-7"
+            title="Close"
+            aria-label="Close style panel"
+            onClick={onClose}
+          >
+            <CloseIcon width={15} height={15} />
+          </button>
+        </div>
+      )}
+
       <button
         type="button"
         className="flex w-full items-center justify-between rounded-lg py-0.5"
@@ -361,6 +375,15 @@ export function StylePanel() {
           </span>
         </button>
 
+        {/* Physics is easy to mistake for broken: bodies sit still until a force
+            acts on them, and only the elected host simulates. Showing both makes
+            the state legible instead of guesswork. */}
+        <p className="ui-label mt-1.5 leading-snug">
+          {physicsCount === 0
+            ? "No active bodies yet."
+            : `${physicsCount} active ${physicsCount === 1 ? "body" : "bodies"}`}
+          {isHost ? " · simulating here" : " · simulated by a peer"}
+        </p>
         <p className="ui-label mt-1.5 leading-snug">
           With the Physics tool, drag an object and let go to fling it.
         </p>
