@@ -86,8 +86,11 @@ export function exportSVG(objects: CanvasObject[], roomId: string) {
     } else if (o.type === "image") {
       const src = propString(o.props, "src");
       if (src) {
+        const radius = cornerRadiusOf(o.props, o.width, o.height, 8);
+        const clip =
+          radius > 0 ? ` clip-path="inset(0% round ${radius}px)"` : "";
         parts.push(
-          `<image href="${escapeXml(src)}" x="${o.x}" y="${o.y}" width="${o.width}" height="${o.height}"${rot}/>`
+          `<image href="${escapeXml(src)}" x="${o.x}" y="${o.y}" width="${o.width}" height="${o.height}"${clip}${rot}/>`
         );
       }
     } else if (o.type === "audio") {

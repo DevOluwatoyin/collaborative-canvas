@@ -155,7 +155,13 @@ export function updateDisplay(
       entry.label.y = 0;
     }
   } else if (obj.type === "image") {
-    entry.bg.roundRect(0, 0, obj.width, obj.height, 8);
+    entry.bg.roundRect(
+      0,
+      0,
+      obj.width,
+      obj.height,
+      cornerRadiusOf(obj.props, obj.width, obj.height, IMAGE_DEFAULT_RADIUS)
+    );
     entry.bg.fill(0xe8ecf1);
     entry.bg.stroke({ width: 2, color: 0xcbd5e1 });
     void ensureImage(entry, obj);
@@ -189,6 +195,34 @@ function lodColor(obj: CanvasObject): number {
     default:
       return 0x94a3b8;
   }
+}
+
+/** Matches the placeholder frame, so an unstyled image still looks softened. */
+const IMAGE_DEFAULT_RADIUS = 8;
+
+/**
+ * Sprites are rectangular textures, so rounded corners come from a Graphics
+ * mask redrawn whenever the object's size or radius changes.
+ */
+function applyImageMask(entry: DisplayEntry, obj: CanvasObject, sprite: Sprite) {
+  const radius = cornerRadiusOf(
+    obj.props,
+    obj.width,
+    obj.height,
+    IMAGE_DEFAULT_RADIUS
+  );
+  let mask = entry.root.children.find((c) => c.label === "imgMask") as
+    | Graphics
+    | undefined;
+  if (!mask) {
+    mask = new Graphics();
+    mask.label = "imgMask";
+    entry.root.addChild(mask);
+  }
+  mask.clear();
+  mask.roundRect(0, 0, obj.width, obj.height, radius);
+  mask.fill(0xffffff);
+  sprite.mask = mask;
 }
 
 /** In-flight or completed loads, so a redraw does not restart a load. */
@@ -243,6 +277,7 @@ export async function ensureImageTexture(entry: DisplayEntry, obj: CanvasObject)
     sprite.width = obj.width;
     sprite.height = obj.height;
     entry.root.addChildAt(sprite, 1);
+    applyImageMask(entry, obj, sprite);
   };
 
   try {
@@ -274,6 +309,9 @@ export function resizeImageSprite(entry: DisplayEntry, obj: CanvasObject) {
     const sprite = child as Sprite;
     sprite.width = obj.width;
     sprite.height = obj.height;
+    // The mask must track both the new size and any corner-radius change that
+    // triggered this redraw.
+    applyImageMask(entry, obj, sprite);
   }
 }
 

@@ -110,11 +110,17 @@ async function paintObject(ctx: CanvasRenderingContext2D, o: CanvasObject) {
   } else if (o.type === "image") {
     const src = propString(o.props, "src");
     const img = src ? await loadImageWithFallback(src, o.id) : null;
+    const radius = cornerRadiusOf(o.props, o.width, o.height, 8);
     if (img) {
+      ctx.save();
+      roundRect(ctx, 0, 0, o.width, o.height, radius);
+      ctx.clip();
       ctx.drawImage(img, 0, 0, o.width, o.height);
+      ctx.restore();
     } else {
       ctx.fillStyle = "#334155";
-      ctx.fillRect(0, 0, o.width, o.height);
+      roundRect(ctx, 0, 0, o.width, o.height, radius);
+      ctx.fill();
     }
   } else if (o.type === "audio") {
     ctx.fillStyle = "#1e293b";

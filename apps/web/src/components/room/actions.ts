@@ -380,7 +380,12 @@ export function createRoomActions(store: RoomStore, refs: RoomRefs) {
     bindings.doc.transact(() => {
       for (const id of ids) {
         const obj = refs.objects.get(id);
-        if (!obj || (obj.type !== "shape" && obj.type !== "sticky")) continue;
+        if (
+          !obj ||
+          (obj.type !== "shape" && obj.type !== "sticky" && obj.type !== "image")
+        ) {
+          continue;
+        }
         updateRoomObject(bindings, who, id, { props: { cornerRadius: radius } }, commit);
       }
     });
@@ -433,6 +438,30 @@ export function createRoomActions(store: RoomStore, refs: RoomRefs) {
 
   function zoomBy(factor: number) {
     setZoom(store.getState().zoom * factor);
+  }
+
+  /**
+   * Frames every object on the board — the way back after zooming or panning
+   * into empty space far from the content.
+   */
+  function zoomToFit() {
+    if (refs.objects.size === 0) return;
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const o of refs.objects.values()) {
+      minX = Math.min(minX, o.x);
+      minY = Math.min(minY, o.y);
+      maxX = Math.max(maxX, o.x + o.width);
+      maxY = Math.max(maxY, o.y + o.height);
+    }
+    refs.focusRect?.({
+      x: minX,
+      y: minY,
+      width: Math.max(1, maxX - minX),
+      height: Math.max(1, maxY - minY),
+    });
   }
 
   /**
@@ -497,5 +526,6 @@ export function createRoomActions(store: RoomStore, refs: RoomRefs) {
     redo,
     setZoom,
     zoomBy,
+    zoomToFit,
   };
 }

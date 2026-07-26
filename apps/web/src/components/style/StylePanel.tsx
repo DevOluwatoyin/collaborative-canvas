@@ -65,16 +65,21 @@ export function StylePanel() {
 
   const showShapeKind = tool === "shape" || selected?.type === "shape";
 
-  // Only rectangles and stickies have corners to round; hiding the control for
-  // ellipses and triangles keeps it from looking broken.
+  // Only rectangles, stickies and images have corners to round; hiding the
+  // control for ellipses and triangles keeps it from looking broken.
   const isRoundable =
     selected?.type === "sticky" ||
+    selected?.type === "image" ||
     (selected?.type === "shape" &&
       propString(selected.props, "shape", "rect") === "rect");
   const showCornerRadius =
     isRoundable || (!selected && tool === "shape" && shapeKind === "rect");
   const activeRadius = selected
-    ? propNumber(selected.props, "cornerRadius", selected.type === "sticky" ? 4 : 10)
+    ? propNumber(
+        selected.props,
+        "cornerRadius",
+        selected.type === "sticky" ? 4 : selected.type === "image" ? 8 : 10
+      )
     : styleCornerRadius;
 
   return (

@@ -15,6 +15,14 @@ const MAX_PLOTTED = 1500;
 
 type Panel = { x: number; y: number };
 
+/** Keeps a panel position inside the current window, matching the drag clamp. */
+function clampToWindow(p: Panel): Panel {
+  return {
+    x: Math.max(8, Math.min(window.innerWidth - 180, p.x)),
+    y: Math.max(8, Math.min(window.innerHeight - 200, p.y)),
+  };
+}
+
 function readStoredPosition(): Panel | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -26,7 +34,11 @@ function readStoredPosition(): Panel | null {
       typeof (parsed as Panel).x === "number" &&
       typeof (parsed as Panel).y === "number"
     ) {
-      return parsed as Panel;
+      // The saved position was clamped against the window it was dragged in.
+      // Restored into a smaller window it can sit entirely off-screen, which
+      // made the radar invisible for anyone who once dragged it on a larger
+      // display — re-clamp against the window we are actually in.
+      return clampToWindow(parsed as Panel);
     }
   } catch {
     // Corrupt or unavailable storage — fall back to the default corner.
@@ -161,10 +173,7 @@ export function Minimap() {
     const onMove = (e: PointerEvent) => {
       const drag = dragRef.current;
       if (!drag) return;
-      setPos({
-        x: Math.max(8, Math.min(window.innerWidth - 180, e.clientX - drag.ox)),
-        y: Math.max(8, Math.min(window.innerHeight - 200, e.clientY - drag.oy)),
-      });
+      setPos(clampToWindow({ x: e.clientX - drag.ox, y: e.clientY - drag.oy }));
     };
     const onUp = () => {
       if (!dragRef.current) return;

@@ -296,3 +296,37 @@ export const CheckIcon = (p: IconProps) => (
     <path d="M5 12.5l4.5 4.5L19 7" />
   </Svg>
 );
+
+export const FitViewIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 8V6a2 2 0 012-2h2M16 4h2a2 2 0 012 2v2M20 16v2a2 2 0 01-2 2h-2M8 20H6a2 2 0 01-2-2v-2" />
+    <circle cx="12" cy="12" r="2.4" fill="currentColor" stroke="none" />
+  </Svg>
+);
+
+export const PlayIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M8 5.5l11 6.5-11 6.5z" fill="currentColor" stroke="none" />
+  </Svg>
+);
+
+export const PauseIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="7" y="5" width="3.4" height="14" rx="1" fill="currentColor" stroke="none" />
+    <rect x="13.6" y="5" width="3.4" height="14" rx="1" fill="currentColor" stroke="none" />
+  </Svg>
+);
+
+export const SkipBackIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M11.5 6.5l-7 5.5 7 5.5z" fill="currentColor" stroke="none" />
+    <path d="M19.5 6.5l-7 5.5 7 5.5z" fill="currentColor" stroke="none" />
+  </Svg>
+);
+
+export const SkipForwardIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12.5 6.5l7 5.5-7 5.5z" fill="currentColor" stroke="none" />
+    <path d="M4.5 6.5l7 5.5-7 5.5z" fill="currentColor" stroke="none" />
+  </Svg>
+);

@@ -17,7 +17,9 @@ import { StylePanel } from "@/components/style/StylePanel";
 import { MainMenu } from "@/components/menu/MainMenu";
 import { ShareBar } from "@/components/room/ShareBar";
 import { AudioRecorder } from "@/components/room/AudioRecorder";
+import { AudioPlayerBar } from "@/components/room/AudioPlayer";
 import { Minimap } from "@/components/minimap/Minimap";
+import { FitViewIcon } from "@/components/ui/icons";
 import { ReplayPanel } from "@/components/replay/ReplayPanel";
 import {
   OnboardingWizard,
@@ -151,6 +153,22 @@ function RoomInner() {
           </div>
         )}
 
+        {/* One-click way back to the content after panning or zooming into
+            empty space. Yields the top-centre slot to the status badges. */}
+        {!replayOpen && !allSelected && objectCount > 0 && (
+          <div className="absolute left-1/2 top-3 -translate-x-1/2">
+            <button
+              type="button"
+              className="ui-card pointer-events-auto flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium"
+              title="Zoom to fit every object in view"
+              onClick={actions.zoomToFit}
+            >
+              <FitViewIcon width={14} height={14} />
+              Fit view
+            </button>
+          </div>
+        )}
+
         {replayOpen && (
           <div className="ui-card absolute left-1/2 top-3 -translate-x-1/2 px-3 py-1.5 text-[12px] font-semibold text-amber-600 dark:text-amber-300">
             Replay mode — canvas shows history
@@ -172,6 +190,7 @@ function RoomInner() {
       </div>
 
       <AudioRecorder />
+      <AudioPlayerBar />
 
       {replayOpen && <ReplayPanel onClose={() => setReplayOpen(false)} />}
       {tourOpen && <OnboardingWizard onClose={() => setTourOpen(false)} />}

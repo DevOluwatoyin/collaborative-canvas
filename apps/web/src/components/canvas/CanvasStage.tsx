@@ -9,7 +9,11 @@ import {
   useRoomHandles,
   useRoomState,
 } from "@/components/room/RoomStoreProvider";
-import { setViewportCenterHandle, setZoomHandle } from "@/components/room/store";
+import {
+  setFocusRectHandle,
+  setViewportCenterHandle,
+  setZoomHandle,
+} from "@/components/room/store";
 import { getCurrentTheme, useTheme } from "@/lib/theme/ThemeProvider";
 
 /**
@@ -123,6 +127,7 @@ export function CanvasStage() {
       // frame, even if CRDT observers fired before the engine was ready.
       for (const id of refs.objects.keys()) refs.dirty.add(id);
       setZoomHandle(refs, (zoom) => instance.setZoom(zoom));
+      setFocusRectHandle(refs, (rect) => instance.focusWorldRect(rect));
       setViewportCenterHandle(refs, () => {
         const b = instance.getWorldBounds();
         return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
@@ -155,6 +160,7 @@ export function CanvasStage() {
       cancelAnimationFrame(raf);
       unsubscribe();
       setZoomHandle(refs, null);
+      setFocusRectHandle(refs, null);
       setViewportCenterHandle(refs, null);
       setEngine(null);
       instance.destroy();

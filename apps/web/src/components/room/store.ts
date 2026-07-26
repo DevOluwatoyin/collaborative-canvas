@@ -94,6 +94,10 @@ export type RoomRefs = {
   undo: Y.UndoManager | null;
   /** Set by the canvas so zoom controls can drive the viewport imperatively. */
   zoomTo: ((zoom: number) => void) | null;
+  /** Set by the canvas so "fit view" can frame a world rect imperatively. */
+  focusRect:
+    | ((rect: { x: number; y: number; width: number; height: number }) => void)
+    | null;
   /**
    * World point at the middle of the visible canvas. Tools that create an object
    * without a placement click (image, audio) drop it here.
@@ -150,6 +154,7 @@ export function createRoomRefs(): RoomRefs {
     physics: null,
     undo: null,
     zoomTo: null,
+    focusRect: null,
     viewportCenter: null,
     objects: new Map(),
     dirty: new Set(),
@@ -180,6 +185,13 @@ export function setZoomHandle(
   zoomTo: ((zoom: number) => void) | null
 ): void {
   refs.zoomTo = zoomTo;
+}
+
+export function setFocusRectHandle(
+  refs: RoomRefs,
+  focusRect: RoomRefs["focusRect"]
+): void {
+  refs.focusRect = focusRect;
 }
 
 export function setViewportCenterHandle(

@@ -290,6 +290,28 @@ export class CanvasEngine {
     this.markViewportDirty();
   }
 
+  /**
+   * Centres a world-space rect in the view at the largest zoom that fits it
+   * (with breathing room), so "back to my stuff" is one call regardless of how
+   * far the user wandered.
+   */
+  focusWorldRect(rect: Rect) {
+    if (!this.ready) return;
+    const screenW = this.app.screen.width;
+    const screenH = this.app.screen.height;
+    if (screenW === 0 || screenH === 0) return;
+    const worldW = Math.max(1, rect.width);
+    const worldH = Math.max(1, rect.height);
+    const fitZoom = Math.min((screenW / worldW) * 0.85, (screenH / worldH) * 0.85);
+    const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, fitZoom));
+    this.viewport.zoom = zoom;
+    this.viewport.x = screenW / 2 - (rect.x + rect.width / 2) * zoom;
+    this.viewport.y = screenH / 2 - (rect.y + rect.height / 2) * zoom;
+    this.applyViewport();
+    this.callbacks.onViewportChange({ ...this.viewport });
+    this.markViewportDirty();
+  }
+
   getWorldBounds() {
     if (!this.ready || !this.app.screen) {
       return { x: 0, y: 0, width: 800, height: 600, zoom: this.viewport.zoom };
