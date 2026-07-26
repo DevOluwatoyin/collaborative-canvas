@@ -157,6 +157,12 @@ export function propPoints(
 }
 
 /**
+ * Sticky notes keep a slight paper-like rounding by default. Shapes default to
+ * sharp corners (fallback 0) and are rounded only when explicitly set.
+ */
+export const STICKY_RADIUS = 4;
+
+/**
  * Corner radius for rectangular shapes and sticky notes, clamped so it can never
  * exceed half the shorter edge (beyond that a rounded rect degenerates).
  */
@@ -164,7 +170,7 @@ export function cornerRadiusOf(
   props: Record<string, unknown>,
   width: number,
   height: number,
-  fallback = 10
+  fallback = 0
 ): number {
   const raw = propNumber(props, "cornerRadius", fallback);
   return Math.max(0, Math.min(raw, Math.min(Math.abs(width), Math.abs(height)) / 2));

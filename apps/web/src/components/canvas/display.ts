@@ -5,6 +5,7 @@ import {
   propPoints,
   propStrokes,
   propString,
+  STICKY_RADIUS,
   type CanvasObject,
   type PathPoint,
 } from "@infinite-canvas/shared";
@@ -129,7 +130,7 @@ export function updateDisplay(
       0,
       obj.width,
       obj.height,
-      cornerRadiusOf(obj.props, obj.width, obj.height, 4)
+      cornerRadiusOf(obj.props, obj.width, obj.height, STICKY_RADIUS)
     );
     entry.bg.fill(parseColor(propString(obj.props, "color", "#FDE68A")));
     if (entry.label) {

@@ -139,7 +139,7 @@ export function createRoomStore(roomId: string, identity: GuestIdentity) {
     styleColor: "#4465e9",
     styleSize: "m",
     styleOpacity: 1,
-    styleCornerRadius: 10,
+    styleCornerRadius: 0,
     zoom: 1,
     canUndo: false,
     canRedo: false,

@@ -142,7 +142,7 @@ function RoomInner() {
         </div>
 
         {!replayOpen && (
-          <div className="absolute right-3 top-[4.75rem] hidden md:block">
+          <div className="absolute right-3 top-[4.75rem] z-20 hidden md:block">
             <StylePanel />
           </div>
         )}
@@ -175,9 +175,13 @@ function RoomInner() {
           </div>
         )}
 
-        {/* Narrow viewports stack the zoom pill above the centred toolbars,
-            which grow wide enough to reach the left edge. */}
-        <div className="absolute bottom-[7.5rem] left-3 sm:bottom-3">
+        {/* Bottom-left column. The radar used to float on the right, where it
+            overlapped the style panel and swallowed clicks meant for the physics
+            controls; stacking it with the zoom pill keeps the right edge for the
+            panel alone. Narrow viewports lift the column above the centred
+            toolbars, which grow wide enough to reach the left edge. */}
+        <div className="absolute bottom-[7.5rem] left-3 flex flex-col items-start gap-2 sm:bottom-3">
+          {radarVisible && !replayOpen && <Minimap />}
           <ZoomControl />
         </div>
 
@@ -185,8 +189,6 @@ function RoomInner() {
           <ActionsBar />
           <ToolStrip />
         </div>
-
-        {radarVisible && !replayOpen && <Minimap />}
       </div>
 
       <AudioRecorder />

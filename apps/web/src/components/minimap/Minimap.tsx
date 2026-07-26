@@ -197,17 +197,17 @@ export function Minimap() {
     };
   }, []);
 
-  const style = pos ? { left: pos.x, top: pos.y, right: "auto", bottom: "auto" } : undefined;
+  const style = pos ? { left: pos.x, top: pos.y } : undefined;
 
   return (
     <div
       ref={panelRef}
       style={style}
       data-tour="radar"
-      className={`ui-card pointer-events-auto absolute z-20 overflow-hidden p-2 ${
-        // Parked above the toolbars rather than beside them: the tool strip is
-        // centred, so any fixed right offset collides at some viewport width.
-        pos === null ? "bottom-[7.5rem] right-3" : ""
+      // Undragged, the radar sits in the bottom-left column so it cannot overlap
+      // the style panel. Once dragged it is pinned to the viewport instead.
+      className={`ui-card pointer-events-auto z-20 overflow-hidden p-2 ${
+        pos === null ? "relative" : "fixed"
       }`}
     >
       <div

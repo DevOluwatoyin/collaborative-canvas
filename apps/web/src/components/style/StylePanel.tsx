@@ -1,12 +1,18 @@
 "use client";
 
-import { propNumber, propString } from "@infinite-canvas/shared";
+import { useState } from "react";
+import { propNumber, propString, STICKY_RADIUS } from "@infinite-canvas/shared";
 import {
   useObject,
   useRoomActions,
   useRoomState,
 } from "@/components/room/RoomStoreProvider";
-import { CircleIcon, SquareIcon, TriangleIcon } from "@/components/ui/icons";
+import {
+  ChevronUpIcon,
+  CircleIcon,
+  SquareIcon,
+  TriangleIcon,
+} from "@/components/ui/icons";
 import { PALETTE, SIZES, colorPropFor, sizeFromFontSize } from "./styles";
 
 const SIZE_LABEL: Record<string, string> = { s: "S", m: "M", l: "L", xl: "XL" };
@@ -49,6 +55,10 @@ export function StylePanel() {
   const selected = useObject(selectedIds[0] ?? null);
   const physicsOnSelection = selected?.physics?.enabled === true;
 
+  // Open by default — the palette is a primary control. Collapsing it is the
+  // quickest way to shorten the panel when the other sections are in use.
+  const [colorOpen, setColorOpen] = useState(true);
+
   // With a selection the panel reflects that object, so the swatches show what
   // you are about to change rather than a stale default.
   const colorProp = selected ? colorPropFor(selected.type) : null;
@@ -78,28 +88,59 @@ export function StylePanel() {
     ? propNumber(
         selected.props,
         "cornerRadius",
-        selected.type === "sticky" ? 4 : selected.type === "image" ? 8 : 10
+        selected.type === "sticky" ? STICKY_RADIUS : 0
       )
     : styleCornerRadius;
 
   return (
-    <div data-tour="style" className="ui-card pointer-events-auto w-[196px] p-3">
-      <div className="grid grid-cols-4 justify-items-center gap-2">
-        {PALETTE.map((swatch) => (
-          <button
-            key={swatch.name}
-            type="button"
-            className="ui-swatch"
-            style={{ background: swatch.hex }}
-            title={swatch.name.replace("-", " ")}
-            aria-label={`Colour ${swatch.name.replace("-", " ")}`}
-            data-selected={
-              activeColor.toLowerCase() === swatch.hex.toLowerCase() ? "true" : undefined
-            }
-            onClick={() => actions.setStyleColor(swatch.hex)}
+    // The panel is capped to the viewport and scrolls internally. Left
+    // unbounded it grew past the bottom of the screen as sections were added,
+    // pushing the physics controls off-screen and under the radar, where they
+    // could not be clicked at all.
+    <div
+      data-tour="style"
+      className="ui-card ui-noscrollbar pointer-events-auto max-h-[calc(100dvh-6.5rem)] w-[196px] overflow-y-auto p-3"
+    >
+      <button
+        type="button"
+        className="flex w-full items-center justify-between rounded-lg py-0.5"
+        aria-expanded={colorOpen}
+        onClick={() => setColorOpen((v) => !v)}
+        title={colorOpen ? "Hide colours" : "Show colours"}
+      >
+        <span className="ui-label">Colour</span>
+        <span className="flex items-center gap-1.5">
+          <span
+            className="h-4 w-4 rounded-full"
+            style={{ background: activeColor, boxShadow: "inset 0 0 0 1px rgba(0,0,0,.15)" }}
           />
-        ))}
-      </div>
+          <ChevronUpIcon
+            width={14}
+            height={14}
+            className={colorOpen ? "" : "rotate-180"}
+            style={{ transition: "transform .15s ease" }}
+          />
+        </span>
+      </button>
+
+      {colorOpen && (
+        <div className="mt-2 grid grid-cols-4 justify-items-center gap-2">
+          {PALETTE.map((swatch) => (
+            <button
+              key={swatch.name}
+              type="button"
+              className="ui-swatch"
+              style={{ background: swatch.hex }}
+              title={swatch.name.replace("-", " ")}
+              aria-label={`Colour ${swatch.name.replace("-", " ")}`}
+              data-selected={
+                activeColor.toLowerCase() === swatch.hex.toLowerCase() ? "true" : undefined
+              }
+              onClick={() => actions.setStyleColor(swatch.hex)}
+            />
+          ))}
+        </div>
+      )}
 
       <div className="ui-divider mt-3" />
 
@@ -211,7 +252,7 @@ export function StylePanel() {
 
         {/* Force settings are room-wide, and replicated: only the elected host
             simulates, so these must not be local-only toggles. */}
-        <div className="mt-1.5 flex gap-1">
+        <div className="mt-1.5 flex gap-1 flex-wrap">
           {FORCE_MODES.map((mode) => (
             <button
               key={mode}
