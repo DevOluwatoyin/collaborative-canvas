@@ -11,8 +11,6 @@ import { ThemeToggle } from "@/components/theme/ThemeToggle";
 export default function HomePage() {
   const router = useRouter();
   const identity = useGuestIdentity();
-  // Uncontrolled-until-edited: the stored username is the default, so no effect
-  // is needed to copy external state into a state variable.
   const [draftName, setDraftName] = useState<string | null>(null);
   const username = draftName ?? identity?.username ?? "";
   const [joinId, setJoinId] = useState("");
@@ -36,8 +34,6 @@ export default function HomePage() {
     e.preventDefault();
     const id = joinId.trim().replace(/^.*\//, "").split(/[?#]/)[0];
     if (!id) return;
-    // Checked before navigating so a mistyped id gets an inline explanation
-    // rather than a 404 page.
     if (!isValidRoomId(id)) {
       setJoinError(
         `Room ids are ${ROOM_ID_LENGTH} characters of letters, numbers, "-" or "_". Paste the full invite link if you have one.`

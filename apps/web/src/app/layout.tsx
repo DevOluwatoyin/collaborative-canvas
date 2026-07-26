@@ -21,11 +21,9 @@ const DESCRIPTION =
   "A real-time collaborative infinite canvas. Sketch, drop sticky notes, images and voice clips, throw objects with real physics, and replay the whole session — with live cursors and offline sync.";
 
 export const metadata: Metadata = {
-  // Resolves relative Open Graph and canonical URLs.
   metadataBase: new URL(SITE_URL),
   title: {
     default: "Orbitboard — Collaborative Infinite Canvas",
-    // Room pages set only their own name; the brand is appended here.
     template: "%s · Orbitboard",
   },
   description: DESCRIPTION,
@@ -62,8 +60,6 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  // The canvas fills the screen and handles its own gestures, so browser
-  // pinch-zoom on the chrome would fight it.
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,

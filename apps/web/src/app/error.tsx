@@ -3,10 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 
-/**
- * Route-level boundary. Catches render and data errors below the root layout so
- * a single broken feature shows recoverable UI instead of a blank page.
- */
+
 export default function AppError({
   error,
   unstable_retry,
@@ -15,7 +12,6 @@ export default function AppError({
   unstable_retry: () => void;
 }) {
   useEffect(() => {
-    // Digest is the only handle back to the server-side log entry.
     console.error("[orbitboard] route error:", error.digest ?? "", error);
   }, [error]);
 

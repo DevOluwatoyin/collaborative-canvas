@@ -14,8 +14,6 @@ export default function RoomPage({
 }) {
   const { roomId } = use(params);
   const router = useRouter();
-  // Derived from external state rather than mirrored into an effect: an existing
-  // identity means the join form can be skipped entirely.
   const identity = useGuestIdentity();
   const [name, setName] = useState("");
 

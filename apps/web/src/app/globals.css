@@ -1,11 +1,5 @@
 @import "tailwindcss";
 
-/*
- * One palette, expressed with `light-dark()` so each token is written once.
- * `color-scheme: light dark` on :root means the browser resolves them from the
- * OS preference, and the .light / .dark classes below narrow that to an explicit
- * choice. This is what lets the first paint be correct with no blocking script.
- */
 :root {
   color-scheme: light dark;
 
@@ -66,6 +60,7 @@ html.dark {
   &:where(.dark, .dark *) {
     @slot;
   }
+
   @media (prefers-color-scheme: dark) {
     &:where(html:not(.light) *, html:not(.light)) {
       @slot;
@@ -89,17 +84,13 @@ body {
 
 body {
   background-image:
-    radial-gradient(
-      ellipse 80% 50% at 20% -10%,
+    radial-gradient(ellipse 80% 50% at 20% -10%,
       light-dark(rgba(13, 159, 144, 0.14), rgba(61, 214, 198, 0.12)),
-      transparent
-    ),
+      transparent),
     radial-gradient(ellipse 60% 40% at 90% 10%, rgba(232, 93, 76, 0.1), transparent),
-    linear-gradient(
-      180deg,
+    linear-gradient(180deg,
       light-dark(#f7f5f0, #0f1419) 0%,
-      light-dark(#efece6, #0b1016) 100%
-    );
+      light-dark(#efece6, #0b1016) 100%);
   background-attachment: fixed;
 }
 

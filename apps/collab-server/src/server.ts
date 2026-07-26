@@ -17,12 +17,6 @@ type Room = {
   doc: Y.Doc;
   awareness: awarenessProtocol.Awareness;
   clients: Set<WebSocket>;
-  /**
-   * Awareness client ids each socket owns. Needed so a dropped connection's
-   * presence can be cleared: the previous implementation compared a `conn`
-   * field that awareness states never carry, so it always matched nothing and
-   * ghost cursors lingered until the 30s outdated-state sweep.
-   */
   controlledIds: Map<WebSocket, Set<number>>;
   reaper?: NodeJS.Timeout;
 };
@@ -78,7 +72,6 @@ function getRoom(roomName: string): Room {
       }: { added: number[]; updated: number[]; removed: number[] },
       origin: unknown
     ) => {
-      // Attribute awareness ids to the socket that introduced them.
       if (origin instanceof WebSocket) {
         let owned = room.controlledIds.get(origin);
         if (!owned) {
@@ -202,8 +195,6 @@ wss.on("connection", (conn, req) => {
       );
     }
 
-    // Keep the document warm briefly so a reload or flaky network does not
-    // discard room content, then release it.
     if (room.clients.size === 0 && !room.reaper) {
       room.reaper = setTimeout(() => {
         if (room.clients.size > 0) return;

@@ -3,11 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 
-/**
- * Scoped to the room segment so a canvas failure — a WebGL context that will not
- * initialise, a corrupt local document — keeps the rest of the app usable and
- * offers the two recoveries that actually help here.
- */
+
 export default function RoomError({
   error,
   unstable_retry,

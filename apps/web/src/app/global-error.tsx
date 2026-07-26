@@ -2,11 +2,7 @@
 
 import { useEffect } from "react";
 
-/**
- * Last-resort boundary: replaces the root layout, so it must render its own
- * <html> and <body> and cannot rely on the app's fonts or CSS variables. Styles
- * here are inline for that reason.
- */
+
 export default function GlobalError({
   error,
   unstable_retry,

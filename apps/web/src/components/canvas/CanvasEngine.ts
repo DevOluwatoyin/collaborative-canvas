@@ -37,15 +37,7 @@ import type {
 
 export type { ViewportState, CanvasEngineCallbacks } from "./types";
 
-/**
- * Renders the canvas from a mutable object map owned by the room, outside React.
- *
- * Per-frame cost tracks what changed and what is on screen rather than the total
- * object count: `applyChanges` drains the CRDT's change queue, a spatial index
- * drives culling and hit-testing, and a display is redrawn only when its object
- * or selection state changed. Physics bodies interpolate toward their last
- * published position so 20Hz updates read as smooth motion.
- */
+
 export class CanvasEngine {
   app: Application;
   world: Container;
@@ -90,8 +82,6 @@ export class CanvasEngine {
     this.app = new Application();
     this.world = new Container();
     this.objectsLayer = new Container();
-    // Children are drawn in zIndex order rather than insertion order, so object
-    // stacking follows the data model.
     this.objectsLayer.sortableChildren = true;
     this.cursorsLayer = new Container();
     this.overlayLayer = new Container();
@@ -169,7 +159,6 @@ export class CanvasEngine {
     this.markViewportDirty();
   }
 
-  /** Points the engine at the room's live object map. */
   attachSource(objects: Map<string, CanvasObject>) {
     this.source = objects;
     this.reindex();
@@ -227,14 +216,8 @@ export class CanvasEngine {
     this.selectionDirty = true;
   }
 
-  /**
-   * Folds the room's pending change queue into the spatial index. Called once
-   * per frame with the sets the CRDT observer filled, and drains them.
-   */
   applyChanges(dirty: Set<string>, removed: Set<string>) {
     if (this.overlay) {
-      // Leave the queues alone — live CRDT updates keep landing in refs while
-      // replay is open, and we reindex from the source map when overlay closes.
       return;
     }
     if (removed.size > 0) {
