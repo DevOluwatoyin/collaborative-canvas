@@ -1,6 +1,10 @@
 import type { Container, Graphics, Text } from "pixi.js";
 import { HANDLE_SIZE, SELECTION_COLOR } from "./constants";
-import { handlePositions, type ObjectLookup } from "./geometry";
+import {
+  handlePositions,
+  rotateHandlePosition,
+  type ObjectLookup,
+} from "./geometry";
 import type { PathPoint } from "@infinite-canvas/shared";
 import type { Rect } from "./types";
 export function drawMarquee(
@@ -55,6 +59,21 @@ export function drawEditHint(
   );
 }
 
+/**
+ * Rotation grip: a stem rising from the top edge to a round knob. Drawn in world
+ * space but sized from the zoom so it stays a constant on-screen target.
+ */
+function drawRotateGrip(gfx: Graphics, bounds: Rect, zoom: number) {
+  const grip = rotateHandlePosition(bounds, zoom);
+  const radius = 5 / zoom;
+  gfx.moveTo(bounds.x + bounds.width / 2, bounds.y);
+  gfx.lineTo(grip.x, grip.y + radius);
+  gfx.stroke({ width: 1.25 / zoom, color: SELECTION_COLOR, alpha: 0.85 });
+  gfx.circle(grip.x, grip.y, radius);
+  gfx.fill(0xffffff);
+  gfx.stroke({ width: 1.5 / zoom, color: SELECTION_COLOR });
+}
+
 export function drawSelectionHandles(
   gfx: Graphics,
   selectedIds: Set<string>,
@@ -66,6 +85,7 @@ export function drawSelectionHandles(
   gfx.clear();
   if (!bounds || selectedIds.size === 0) return;
   const size = HANDLE_SIZE / zoom;
+  drawRotateGrip(gfx, bounds, zoom);
 
   for (const id of selectedIds) {
     const obj = lookup.getObject(id);

@@ -1,6 +1,8 @@
 export const CULL_MARGIN = 400;
 export const HANDLE_SIZE = 8;
 export const MIN_SIZE = 24;
+/** Screen-radius of the rotation grip hit area. */
+export const ROTATE_HIT_PAD = 11;
 export const GRID_STEP = 80;
 export const SELECTION_COLOR = 0x0d9f90;
 export const STROKE_DEFAULT = 0x1a2330;

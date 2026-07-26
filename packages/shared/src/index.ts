@@ -89,6 +89,12 @@ export type PresenceState = {
   cursor: { x: number; y: number } | null;
   viewportCenter: { x: number; y: number };
   viewport: { x: number; y: number; width: number; height: number; zoom: number };
+  /**
+   * Objects this peer is currently dragging. The simulation host pins these
+   * bodies to the incoming position instead of simulating them, so a physics
+   * object can still be repositioned by hand.
+   */
+  draggingIds?: string[];
 };
 
 export type Tool =
@@ -219,4 +225,54 @@ export function createCanvasObject(
     updatedAt: now,
     ...partial,
   };
+}
+
+export type TextAlign = "left" | "center" | "right";
+
+/**
+ * Text styling shared by every renderer and exporter.
+ *
+ * Underline is deliberately absent: Pixi's text pipeline has no underline
+ * support, so a control for it would work in the SVG export and silently do
+ * nothing on the canvas the user is actually looking at.
+ */
+export type TextStyleProps = {
+  align: TextAlign;
+  bold: boolean;
+  italic: boolean;
+  fontSize: number;
+};
+
+export function textAlignOf(
+  props: Record<string, unknown>,
+  fallback: TextAlign
+): TextAlign {
+  const value = props.textAlign;
+  return value === "left" || value === "center" || value === "right"
+    ? value
+    : fallback;
+}
+
+export function textStyleOf(
+  props: Record<string, unknown>,
+  defaults: { align: TextAlign; fontSize: number }
+): TextStyleProps {
+  return {
+    align: textAlignOf(props, defaults.align),
+    bold: props.bold === true,
+    italic: props.italic === true,
+    fontSize: propNumber(props, "fontSize", defaults.fontSize),
+  };
+}
+
+/** Horizontal offset of a text block inside a box, for the given alignment. */
+export function alignedX(
+  align: TextAlign,
+  boxWidth: number,
+  textWidth: number,
+  padding: number
+): number {
+  if (align === "center") return (boxWidth - textWidth) / 2;
+  if (align === "right") return boxWidth - textWidth - padding;
+  return padding;
 }

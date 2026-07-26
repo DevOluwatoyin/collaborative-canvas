@@ -48,6 +48,8 @@ export type RoomState = {
   tool: Tool;
   shapeKind: ShapeKind;
   selectedIds: string[];
+  /** Objects this user is dragging right now; mirrored into presence. */
+  draggingIds: string[];
   editingTextId: string | null;
   /** Replicated via the document so the elected host applies them. */
   attractMode: AttractMode;
@@ -133,6 +135,7 @@ export function createRoomStore(roomId: string, identity: GuestIdentity) {
     tool: "select",
     shapeKind: "rect",
     selectedIds: [],
+    draggingIds: [],
     editingTextId: null,
     attractMode: "none",
     gravity: false,

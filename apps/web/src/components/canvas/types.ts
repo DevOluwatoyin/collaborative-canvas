@@ -57,6 +57,12 @@ export type CanvasEngineCallbacks = {
   onObjectMoveEnd: (
     updates: { id: string; x: number; y: number; vx: number; vy: number }[]
   ) => void;
+  onObjectRotate: (
+    updates: { id: string; rotation: number; cx: number; cy: number }[]
+  ) => void;
+  onObjectRotateEnd: (
+    updates: { id: string; rotation: number; cx: number; cy: number }[]
+  ) => void;
   onObjectResize: (
     updates: { id: string; x: number; y: number; width: number; height: number }[]
   ) => void;

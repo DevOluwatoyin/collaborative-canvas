@@ -6,6 +6,9 @@ import {
   propStrokes,
   propString,
   STICKY_RADIUS,
+  alignedX,
+  textStyleOf,
+  type TextAlign,
   type CanvasObject,
   type PathPoint,
 } from "@infinite-canvas/shared";
@@ -40,6 +43,21 @@ export function createDisplay(obj: CanvasObject): DisplayEntry {
   }
   root.eventMode = "none";
   return { root, bg, label };
+}
+
+
+/** Applies the object's text styling to a Pixi label and returns its layout. */
+function applyLabelStyle(
+  label: Text,
+  obj: CanvasObject,
+  defaults: { align: TextAlign; fontSize: number; padding: number }
+) {
+  const style = textStyleOf(obj.props, defaults);
+  label.style.fontSize = style.fontSize;
+  label.style.fontWeight = style.bold ? "700" : "400";
+  label.style.fontStyle = style.italic ? "italic" : "normal";
+  label.style.align = style.align;
+  return style;
 }
 
 export function drawPolyline(
@@ -117,11 +135,14 @@ export function updateDisplay(
       entry.label.style.fill = parseColor(
         propString(obj.props, "textColor", "#ffffff")
       );
-      entry.label.style.fontSize = propNumber(obj.props, "fontSize", 18);
       entry.label.style.wordWrapWidth = Math.max(20, obj.width - 24);
-      entry.label.style.align = "center";
+      const style = applyLabelStyle(entry.label, obj, {
+        align: "center",
+        fontSize: 18,
+        padding: 12,
+      });
       entry.label.text = text;
-      entry.label.x = obj.width / 2 - entry.label.width / 2;
+      entry.label.x = alignedX(style.align, obj.width, entry.label.width, 12);
       entry.label.y = obj.height / 2 - entry.label.height / 2;
     }
   } else if (obj.type === "sticky") {
@@ -137,9 +158,13 @@ export function updateDisplay(
       entry.label.visible = true;
       entry.label.style.fill = 0x1f2937;
       entry.label.style.wordWrapWidth = Math.max(20, obj.width - 20);
-      entry.label.style.align = "left";
+      const style = applyLabelStyle(entry.label, obj, {
+        align: "left",
+        fontSize: 16,
+        padding: 10,
+      });
       entry.label.text = propString(obj.props, "text");
-      entry.label.x = 10;
+      entry.label.x = alignedX(style.align, obj.width, entry.label.width, 10);
       entry.label.y = 10;
     }
   } else if (obj.type === "text") {
@@ -148,11 +173,14 @@ export function updateDisplay(
     if (entry.label) {
       entry.label.visible = true;
       entry.label.style.fill = parseColor(propString(obj.props, "color", "#1a2330"));
-      entry.label.style.fontSize = propNumber(obj.props, "fontSize", 24);
       entry.label.style.wordWrapWidth = Math.max(20, obj.width);
-      entry.label.style.align = "left";
+      const style = applyLabelStyle(entry.label, obj, {
+        align: "left",
+        fontSize: 24,
+        padding: 0,
+      });
       entry.label.text = propString(obj.props, "text", "Text");
-      entry.label.x = 0;
+      entry.label.x = alignedX(style.align, obj.width, entry.label.width, 0);
       entry.label.y = 0;
     }
   } else if (obj.type === "image") {

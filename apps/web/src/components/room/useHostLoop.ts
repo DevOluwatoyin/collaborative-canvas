@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { foldHistory } from "@/lib/yjs/provider";
+import type { CanvasObject } from "@infinite-canvas/shared";
 import { patchYObject } from "@/lib/yjs/objects";
 import { PHYSICS_ORIGIN, type RoomRefs, type RoomStore } from "./store";
 
@@ -36,18 +37,27 @@ export function useHostLoop(store: RoomStore, refs: RoomRefs) {
       const bindings = refs.bindings;
       if (!physics || !bindings) return;
 
-      const { isHost, attractMode, gravity } = store.getState();
+      const { isHost, attractMode, gravity, draggingIds, remotes } = store.getState();
       // Force settings are replicated, so re-applying them each tick keeps the
       // host in step with whoever changed them.
       physics.setAttractMode(attractMode);
       physics.setGravity(gravity ? GRAVITY_SCALE : 0);
 
-      const bodies = [];
+      // Objects being dragged — by anyone — are pinned to the hand rather than
+      // simulated. Without this the host immediately overwrote the dragged
+      // position with the body's simulated one, so a physics-enabled object
+      // could not be repositioned at all.
+      const held = new Set(draggingIds);
+      for (const peer of remotes) {
+        for (const id of peer.draggingIds ?? []) held.add(id);
+      }
+
+      const bodies: CanvasObject[] = [];
       for (const id of refs.physicsIds) {
         const obj = refs.objects.get(id);
         if (obj) bodies.push(obj);
       }
-      physics.syncFromObjects(bodies, { forcePositions: !isHost });
+      physics.syncFromObjects(bodies, { forcePositions: !isHost, pinned: held });
       if (!isHost) return;
 
       physics.step(dt);
@@ -61,6 +71,8 @@ export function useHostLoop(store: RoomStore, refs: RoomRefs) {
         for (const [id, next] of updates) {
           const current = refs.objects.get(id);
           if (!current?.physics?.enabled) continue;
+          // The dragger owns the position while the pointer is down.
+          if (held.has(id)) continue;
           if (
             Math.abs(current.x - next.x) < POSITION_EPSILON &&
             Math.abs(current.y - next.y) < POSITION_EPSILON &&

@@ -20,6 +20,23 @@ export function handlePointerEnd(
     return;
   }
 
+  if (session.rotating) {
+    const updates: { id: string; rotation: number; cx: number; cy: number }[] = [];
+    for (const id of host.getSelectedIds()) {
+      const obj = host.getObject(id);
+      if (!obj) continue;
+      updates.push({
+        id,
+        rotation: obj.rotation,
+        cx: obj.x + obj.width / 2,
+        cy: obj.y + obj.height / 2,
+      });
+    }
+    session.rotating = null;
+    host.callbacks.onObjectRotateEnd(updates);
+    return;
+  }
+
   if (session.resizing) {
     const updates: {
       id: string;

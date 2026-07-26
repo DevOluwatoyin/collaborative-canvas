@@ -73,6 +73,9 @@ export function CanvasStage() {
         else actions.setSelectedIds(ids);
       },
       onObjectMove: (updates) => {
+        // Broadcasting the held ids stops the simulation host from overwriting
+        // the position of a physics object while it is being dragged.
+        actions.setDraggingIds(updates.map((u) => u.id));
         for (const u of updates) {
           actions.updateObject(u.id, { x: u.x, y: u.y }, false);
         }
@@ -80,6 +83,39 @@ export function CanvasStage() {
       onObjectMoveEnd: (updates) => {
         for (const u of updates) {
           actions.updateObject(u.id, { x: u.x, y: u.y }, true);
+        }
+        actions.setDraggingIds([]);
+      },
+      onObjectRotate: (updates) => {
+        for (const u of updates) {
+          // The rotation gesture reports a new centre, but objects are stored by
+          // their top-left corner, so convert back on the way in.
+          const obj = refs.objects.get(u.id);
+          if (!obj) continue;
+          actions.updateObject(
+            u.id,
+            {
+              rotation: u.rotation,
+              x: u.cx - obj.width / 2,
+              y: u.cy - obj.height / 2,
+            },
+            false
+          );
+        }
+      },
+      onObjectRotateEnd: (updates) => {
+        for (const u of updates) {
+          const obj = refs.objects.get(u.id);
+          if (!obj) continue;
+          actions.updateObject(
+            u.id,
+            {
+              rotation: u.rotation,
+              x: u.cx - obj.width / 2,
+              y: u.cy - obj.height / 2,
+            },
+            true
+          );
         }
       },
       onObjectResize: (updates) => {

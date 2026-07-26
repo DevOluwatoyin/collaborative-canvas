@@ -107,13 +107,124 @@ PORT=1234
 |---|---|
 | Top left | Room name and menu (exports, time travel, radar, theme, tour) |
 | Top right | Collaborator avatars, connection state, Share |
-| Right | Style panel — colour, opacity, size, shape, physics (hidden under `md`) |
+| Right | Style panel — colour, opacity, size, corner radius, shape, text, physics (hidden under `md`) |
 | Bottom centre | Edit actions (undo / redo / duplicate / delete / order) above the tool strip |
 | Bottom left | Zoom out / reset / in |
 
 Keyboard: `V` select · `H` hand · `D` draw · `S` shape · `T` text · `N` note ·
 `I` image · `A` audio · `P` physics · `Ctrl/Cmd+Z` undo · `Ctrl/Cmd+Shift+Z` redo ·
-`Ctrl/Cmd+D` duplicate · `Ctrl/Cmd+A` select all · `Del` delete.
+`Ctrl/Cmd+D` duplicate · `Ctrl/Cmd+C/X/V` copy / cut / paste ·
+`Ctrl/Cmd+A` select all · `Del` delete.
+
+Direct manipulation: drag to move · corner and edge handles to resize · the round
+grip above the selection to rotate (hold `Shift` to snap to 15°) · double-click
+text, notes and shapes to edit their label.
+
+## Using physics
+
+Physics is opt-in per object. An object with physics off behaves like a normal
+sticker; an object with physics on becomes a rigid body that collides with every
+other physics body in the room.
+
+**Turning it on**
+
+1. Select one or more objects.
+2. In the style panel (right), under **Physics**, press **Enable on selection**.
+   The label flips to *Disable on selection* while the selection has bodies.
+
+Nothing moves yet — the world starts with no gravity and no forces, so bodies sit
+still until something acts on them. There are three ways to make them move:
+
+| Action | How |
+|---|---|
+| **Throw** | Switch to the **Physics** tool (`P`), then drag an object and release. Release speed becomes launch velocity. |
+| **Gravity** | Style panel → Physics → **Gravity**. Every body starts falling. |
+| **Attract / repel** | Style panel → Physics → `attract` or `repel`. Bodies pull together or push apart continuously. |
+
+**Things worth knowing**
+
+- **You can still drag a physics object.** While your pointer is down, that body
+  is pinned to your cursor and the simulation leaves it alone; it resumes when
+  you let go. No need to disable physics first.
+- **Gravity and attract/repel are room-wide**, not per object, and they are
+  replicated — flipping gravity changes it for everyone.
+- **One peer simulates.** The lowest awareness client id is elected host; it runs
+  Matter.js and publishes positions ~20×/sec. Everyone else interpolates between
+  those updates, so all peers see the same simulation instead of each computing
+  their own and drifting apart.
+- **Physics motion is not undoable and is not recorded in the op log.** It is
+  derived state; recording a op per body per tick would swamp both.
+- Bodies are approximated as rectangles regardless of the shape drawn.
+
+## Understanding time travel
+
+Time travel is a **read-only replay of the session's edit history**. It is not
+undo, and it does not roll the room back.
+
+Every edit — create, move, resize, restyle, delete, and each physics throw — is
+appended to a shared op log. Opening **Menu → Time travel** gives you a slider
+over that log:
+
+- **Step 0** is the state of the board at the start of the recorded history.
+- **Step N** is the board after the Nth operation.
+- Dragging the slider, or pressing **Play**, renders that reconstructed state on
+  the canvas *as an overlay*.
+
+While the panel is open the live document is untouched, and collaborators see
+nothing different — you are the only one viewing history. Closing the panel drops
+the overlay and returns you to the present. There is currently no "restore this
+state" action; to undo recent work use `Ctrl/Cmd+Z`.
+
+Two details that explain what you see:
+
+- The log is compacted once it grows past 4,000 operations: the oldest chunk is
+  folded into a **base snapshot** that step 0 represents. So a long session
+  replays from a complete board rather than from nothing, but the earliest
+  individual steps are no longer separately scrubbable. The panel shows how many
+  operations were compacted.
+- Continuous physics motion is **not** in the log — only the throw that started
+  it. Replaying a physics-heavy session shows objects jumping between recorded
+  positions rather than gliding.
+
+## Testing offline support
+
+Offline support is real, not simulated, and you can exercise it entirely in dev.
+
+```bash
+pnpm dev
+```
+
+**The quickest check**
+
+1. Open a room and add a few objects.
+2. DevTools → **Network** tab → throttling dropdown → **Offline**.
+3. The status pill top-right switches to offline, and a banner explains edits are
+   being kept locally.
+4. Keep working — add, move and delete objects. Everything stays responsive.
+5. Set the throttle back to **No throttling**. The banner clears and your offline
+   edits appear for other peers within a second.
+
+**Proving it survives a reload**
+
+1. Go offline as above and make a change.
+2. Reload the page while still offline. Your objects are still there — they were
+   restored from IndexedDB, not the server.
+3. Go back online; the local document merges with the server's.
+
+**Proving the merge is a real CRDT merge**
+
+1. Open the same room in two separate browser profiles.
+2. Take profile A offline.
+3. Edit *the same object* from both — move it in A, recolour it in B.
+4. Bring A back online. Both edits survive, because objects are stored field by
+   field rather than as one blob.
+
+**Inspecting the local store**: DevTools → Application → IndexedDB → `room-<id>`.
+Deleting that database and reloading forces a clean re-sync from the server.
+
+> Note: the app is offline-*tolerant*, not installable. There is no service
+> worker, so a hard reload with the dev server stopped will not serve the app
+> shell — the offline guarantee covers your board data, not the assets.
 
 ## Features checklist
 
@@ -131,10 +242,14 @@ Keyboard: `V` select · `H` hand · `D` draw · `S` shape · `T` text · `N` not
 | Export PNG / SVG / JSON | Yes |
 | Time travel replay | Yes (snapshot-backed op log) |
 | Undo / redo | Yes (local-only, physics excluded) |
+| Rotate objects | Yes (free, `Shift` snaps to 15°) |
+| Text styling | Yes (size, bold, italic, alignment) |
+| Error boundaries + 404 | Yes (route, room and global) |
 
 Not implemented, and deliberately absent from the UI rather than shown as dead
 controls: stroke dash and fill styles, an arrow/connector tool, align and
-distribute, and shape kinds beyond rectangle / ellipse / triangle.
+distribute, shape kinds beyond rectangle / ellipse / triangle, and text underline
+(Pixi's text pipeline cannot render it, so it would work only in SVG export).
 
 ## Scripts
 

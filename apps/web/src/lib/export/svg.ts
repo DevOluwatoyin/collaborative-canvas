@@ -1,5 +1,7 @@
 import {
   cornerRadiusOf,
+  textStyleOf,
+  type TextAlign,
   propNumber,
   propPoints,
   propStrokes,
@@ -15,6 +17,31 @@ function pathData(points: PathPoint[], ox: number, oy: number): string {
   return points
     .map((p, i) => `${i === 0 ? "M" : "L"}${ox + p.x} ${oy + p.y}`)
     .join(" ");
+}
+
+
+/** SVG text attributes for an object's styling. */
+function textAttrs(
+  props: Record<string, unknown>,
+  defaults: { align: TextAlign; fontSize: number }
+): { attrs: string; anchor: TextAlign } {
+  const style = textStyleOf(props, defaults);
+  const anchorMap = { left: "start", center: "middle", right: "end" } as const;
+  return {
+    attrs:
+      ` font-size="${style.fontSize}"` +
+      ` font-weight="${style.bold ? 700 : 400}"` +
+      ` font-style="${style.italic ? "italic" : "normal"}"` +
+      ` text-anchor="${anchorMap[style.align]}"`,
+    anchor: style.align,
+  };
+}
+
+/** X coordinate for an SVG text node given its anchor. */
+function anchorX(align: TextAlign, x: number, width: number, padding: number): number {
+  if (align === "center") return x + width / 2;
+  if (align === "right") return x + width - padding;
+  return x + padding;
 }
 
 export function exportSVG(objects: CanvasObject[], roomId: string) {
@@ -62,27 +89,26 @@ export function exportSVG(objects: CanvasObject[], roomId: string) {
         )
         .join("");
       const label = propString(o.props, "text");
+      const shapeText = textAttrs(o.props, { align: "center", fontSize: 18 });
       const labelSvg = label
-        ? `<text x="${o.x + o.width / 2}" y="${o.y + o.height / 2 + 6}" fill="${escapeXml(
+        ? `<text x="${anchorX(shapeText.anchor, o.x, o.width, 12)}" y="${o.y + o.height / 2 + 6}" fill="${escapeXml(
             propString(o.props, "textColor", "#ffffff")
-          )}" font-family="system-ui,sans-serif" font-size="${propNumber(
-            o.props,
-            "fontSize",
-            18
-          )}" text-anchor="middle">${escapeXml(label)}</text>`
+          )}" font-family="system-ui,sans-serif"${shapeText.attrs}>${escapeXml(label)}</text>`
         : "";
       parts.push(`<g${rot}>${shape}${scribbles}${labelSvg}</g>`);
     } else if (o.type === "sticky") {
       const fill = escapeXml(propString(o.props, "color", "#FDE68A"));
       const text = escapeXml(propString(o.props, "text"));
+      const stickyText = textAttrs(o.props, { align: "left", fontSize: 16 });
       parts.push(
-        `<g${rot}><rect x="${o.x}" y="${o.y}" width="${o.width}" height="${o.height}" fill="${fill}" rx="${cornerRadiusOf(o.props, o.width, o.height, STICKY_RADIUS)}"/><text x="${o.x + 12}" y="${o.y + 28}" fill="#1f2937" font-family="Georgia, serif" font-size="14">${text}</text></g>`
+        `<g${rot}><rect x="${o.x}" y="${o.y}" width="${o.width}" height="${o.height}" fill="${fill}" rx="${cornerRadiusOf(o.props, o.width, o.height, STICKY_RADIUS)}"/><text x="${anchorX(stickyText.anchor, o.x, o.width, 12)}" y="${o.y + 28}" fill="#1f2937" font-family="Georgia, serif"${stickyText.attrs}>${text}</text></g>`
       );
     } else if (o.type === "text") {
       const text = escapeXml(propString(o.props, "text", "Text"));
       const fill = escapeXml(propString(o.props, "color", "#1a2330"));
+      const bodyText = textAttrs(o.props, { align: "left", fontSize: 24 });
       parts.push(
-        `<text x="${o.x}" y="${o.y + 24}" fill="${fill}" font-family="system-ui,sans-serif" font-size="${propNumber(o.props, "fontSize", 24)}"${rot}>${text}</text>`
+        `<text x="${anchorX(bodyText.anchor, o.x, o.width, 0)}" y="${o.y + 24}" fill="${fill}" font-family="system-ui,sans-serif"${bodyText.attrs}${rot}>${text}</text>`
       );
     } else if (o.type === "image") {
       const src = propString(o.props, "src");

@@ -11,7 +11,6 @@
   },
   "dependencies": {
     "@infinite-canvas/shared": "workspace:*",
-    "isomorphic-dompurify": "^3.19.0",
     "lib0": "^0.2.117",
     "matter-js": "^0.20.0",
     "nanoid": "^3.3.16",

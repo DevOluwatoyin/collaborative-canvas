@@ -13,7 +13,10 @@ export type BodyState = {
 
 export type PhysicsBridge = {
   engine: Matter.Engine;
-  syncFromObjects: (objects: CanvasObject[], opts?: { forcePositions?: boolean }) => void;
+  syncFromObjects: (
+    objects: CanvasObject[],
+    opts?: { forcePositions?: boolean; pinned?: ReadonlySet<string> }
+  ) => void;
   applyImpulse: (id: string, vx: number, vy: number) => void;
   /** Advances the simulation. Reading results is a separate call. */
   step: (dtMs: number) => void;
@@ -72,13 +75,20 @@ export function createPhysicsBridge(): PhysicsBridge {
 
   function syncFromObjects(
     objects: CanvasObject[],
-    opts?: { forcePositions?: boolean }
+    opts?: { forcePositions?: boolean; pinned?: ReadonlySet<string> }
   ) {
     const seen = new Set<string>();
     const force = opts?.forcePositions ?? false;
+    const pinned = opts?.pinned;
     for (const obj of objects) {
       seen.add(obj.id);
-      ensureBody(obj, force);
+      // A pinned body is being dragged: snap it to the incoming position and
+      // hold it still, so the simulation cannot fight the pointer.
+      const body = ensureBody(obj, force || pinned?.has(obj.id) === true);
+      if (body && pinned?.has(obj.id)) {
+        Body.setVelocity(body, { x: 0, y: 0 });
+        Body.setAngularVelocity(body, 0);
+      }
     }
     for (const [id, body] of bodies) {
       if (!seen.has(id)) {

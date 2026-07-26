@@ -1,14 +1,24 @@
 "use client";
 
 import { useState } from "react";
-import { propNumber, propString, STICKY_RADIUS } from "@infinite-canvas/shared";
+import {
+  propNumber,
+  propString,
+  STICKY_RADIUS,
+  textAlignOf,
+} from "@infinite-canvas/shared";
 import {
   useObject,
   useRoomActions,
   useRoomState,
 } from "@/components/room/RoomStoreProvider";
 import {
+  AlignCenterIcon,
+  AlignLeftIcon,
+  AlignRightIcon,
+  BoldIcon,
   ChevronUpIcon,
+  ItalicIcon,
   CircleIcon,
   SquareIcon,
   TriangleIcon,
@@ -24,6 +34,12 @@ const FORCE_HINTS: Record<(typeof FORCE_MODES)[number], string> = {
   attract: "Physics bodies pull towards each other",
   repel: "Physics bodies push each other apart",
 };
+
+const TEXT_ALIGNMENTS = [
+  { value: "left" as const, label: "Align left", icon: <AlignLeftIcon /> },
+  { value: "center" as const, label: "Align centre", icon: <AlignCenterIcon /> },
+  { value: "right" as const, label: "Align right", icon: <AlignRightIcon /> },
+];
 
 const SHAPE_ICONS = [
   { kind: "rect" as const, label: "Rectangle", icon: <SquareIcon /> },
@@ -74,6 +90,15 @@ export function StylePanel() {
   const activeOpacity = selected ? (selected.opacity ?? 1) : styleOpacity;
 
   const showShapeKind = tool === "shape" || selected?.type === "shape";
+
+  // Text controls apply to anything that carries a label.
+  const showTextStyle =
+    selected?.type === "text" ||
+    selected?.type === "sticky" ||
+    selected?.type === "shape";
+  const activeAlign = selected
+    ? textAlignOf(selected.props, selected.type === "shape" ? "center" : "left")
+    : "left";
 
   // Only rectangles, stickies and images have corners to round; hiding the
   // control for ellipses and triangles keeps it from looking broken.
@@ -228,6 +253,52 @@ export function StylePanel() {
                   }}
                 >
                   {s.icon}
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      {showTextStyle && (
+        <>
+          <div className="ui-divider" />
+          <div className="mt-1">
+            <span className="ui-label">Text</span>
+            <div className="mt-1 flex gap-0.5">
+              <button
+                type="button"
+                className="ui-icon-btn flex-1"
+                title="Bold"
+                aria-label="Bold"
+                aria-pressed={selected?.props.bold === true}
+                onClick={() => actions.toggleTextFlag("bold")}
+              >
+                <BoldIcon />
+              </button>
+              <button
+                type="button"
+                className="ui-icon-btn flex-1"
+                title="Italic"
+                aria-label="Italic"
+                aria-pressed={selected?.props.italic === true}
+                onClick={() => actions.toggleTextFlag("italic")}
+              >
+                <ItalicIcon />
+              </button>
+            </div>
+            <div className="mt-1 flex gap-0.5">
+              {TEXT_ALIGNMENTS.map((a) => (
+                <button
+                  key={a.value}
+                  type="button"
+                  className="ui-icon-btn flex-1"
+                  title={a.label}
+                  aria-label={a.label}
+                  aria-pressed={activeAlign === a.value}
+                  onClick={() => actions.setTextAlign(a.value)}
+                >
+                  {a.icon}
                 </button>
               ))}
             </div>

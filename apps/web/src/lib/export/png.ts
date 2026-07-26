@@ -1,5 +1,7 @@
 import {
   cornerRadiusOf,
+  textStyleOf,
+  type TextAlign,
   propNumber,
   propPoints,
   propStrokes,
@@ -67,6 +69,29 @@ function strokePolyline(
   ctx.stroke();
 }
 
+
+/** Sets the 2D context font/alignment from an object's text styling. */
+function applyTextStyle(
+  ctx: CanvasRenderingContext2D,
+  props: Record<string, unknown>,
+  defaults: { align: TextAlign; fontSize: number },
+  family: string
+): TextAlign {
+  const style = textStyleOf(props, defaults);
+  const weight = style.bold ? "700" : "400";
+  const slant = style.italic ? "italic " : "";
+  ctx.font = `${slant}${weight} ${style.fontSize}px ${family}`;
+  ctx.textAlign = style.align === "center" ? "center" : style.align === "right" ? "right" : "left";
+  return style.align;
+}
+
+/** X coordinate matching the canvas textAlign mode. */
+function textX(align: TextAlign, width: number, padding: number): number {
+  if (align === "center") return width / 2;
+  if (align === "right") return width - padding;
+  return padding;
+}
+
 async function paintObject(ctx: CanvasRenderingContext2D, o: CanvasObject) {
   if (o.type === "shape") {
     const kind = propString(o.props, "shape", "rect");
@@ -92,9 +117,13 @@ async function paintObject(ctx: CanvasRenderingContext2D, o: CanvasObject) {
     const label = propString(o.props, "text");
     if (label) {
       ctx.fillStyle = propString(o.props, "textColor", "#ffffff");
-      ctx.font = `${propNumber(o.props, "fontSize", 18)}px system-ui, sans-serif`;
-      ctx.textAlign = "center";
-      ctx.fillText(label, o.width / 2, o.height / 2 + 6);
+      const align = applyTextStyle(
+        ctx,
+        o.props,
+        { align: "center", fontSize: 18 },
+        "system-ui, sans-serif"
+      );
+      ctx.fillText(label, textX(align, o.width, 12), o.height / 2 + 6);
       ctx.textAlign = "start";
     }
   } else if (o.type === "sticky") {
@@ -102,12 +131,35 @@ async function paintObject(ctx: CanvasRenderingContext2D, o: CanvasObject) {
     roundRect(ctx, 0, 0, o.width, o.height, cornerRadiusOf(o.props, o.width, o.height, STICKY_RADIUS));
     ctx.fill();
     ctx.fillStyle = "#1f2937";
-    ctx.font = "14px Georgia, serif";
-    wrapText(ctx, propString(o.props, "text"), 12, 28, o.width - 24, 18);
+    const stickyAlign = applyTextStyle(
+      ctx,
+      o.props,
+      { align: "left", fontSize: 16 },
+      "Georgia, serif"
+    );
+    wrapText(
+      ctx,
+      propString(o.props, "text"),
+      textX(stickyAlign, o.width, 12),
+      28,
+      o.width - 24,
+      18
+    );
+    ctx.textAlign = "start";
   } else if (o.type === "text") {
     ctx.fillStyle = propString(o.props, "color", "#1a2330");
-    ctx.font = `${propNumber(o.props, "fontSize", 24)}px system-ui, sans-serif`;
-    ctx.fillText(propString(o.props, "text", "Text"), 0, 24);
+    const bodyAlign = applyTextStyle(
+      ctx,
+      o.props,
+      { align: "left", fontSize: 24 },
+      "system-ui, sans-serif"
+    );
+    ctx.fillText(
+      propString(o.props, "text", "Text"),
+      textX(bodyAlign, o.width, 0),
+      24
+    );
+    ctx.textAlign = "start";
   } else if (o.type === "image") {
     const src = propString(o.props, "src");
     const img = src ? await loadImageWithFallback(src, o.id) : null;

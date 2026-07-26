@@ -330,3 +330,34 @@ export const SkipForwardIcon = (p: IconProps) => (
     <path d="M4.5 6.5l7 5.5-7 5.5z" fill="currentColor" stroke="none" />
   </Svg>
 );
+
+export const BoldIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M7 5h5.5a3.5 3.5 0 010 7H7z" />
+    <path d="M7 12h6.5a3.5 3.5 0 010 7H7z" />
+  </Svg>
+);
+
+export const ItalicIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M15 5h-5M14 19H9M13.5 5l-3 14" />
+  </Svg>
+);
+
+export const AlignLeftIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 6h16M4 10h10M4 14h16M4 18h10" />
+  </Svg>
+);
+
+export const AlignCenterIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 6h16M7 10h10M4 14h16M7 18h10" />
+  </Svg>
+);
+
+export const AlignRightIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 6h16M10 10h10M4 14h16M10 18h10" />
+  </Svg>
+);

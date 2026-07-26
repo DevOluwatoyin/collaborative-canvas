@@ -167,3 +167,68 @@ export function normalizeRect(x0: number, y0: number, x1: number, y1: number): R
     height: Math.abs(y1 - y0),
   };
 }
+
+/** Screen-space offset of the rotation grip above the selection's top edge. */
+export const ROTATE_HANDLE_OFFSET = 26;
+
+export function rotateHandlePosition(bounds: Rect, zoom: number): Point {
+  return {
+    x: bounds.x + bounds.width / 2,
+    y: bounds.y - ROTATE_HANDLE_OFFSET / zoom,
+  };
+}
+
+export function hitRotateHandle(
+  bounds: Rect | null,
+  wx: number,
+  wy: number,
+  zoom: number,
+  hitPad: number
+): boolean {
+  if (!bounds) return false;
+  const grip = rotateHandlePosition(bounds, zoom);
+  return Math.hypot(wx - grip.x, wy - grip.y) <= hitPad;
+}
+
+/** Degrees from a centre to a point, measured clockwise from 12 o'clock. */
+export function angleFromCenter(center: Point, point: Point): number {
+  return (Math.atan2(point.y - center.y, point.x - center.x) * 180) / Math.PI;
+}
+
+/**
+ * Rotates each object about the selection centre. A single object spins in
+ * place; a group also orbits, so the arrangement rotates as one rigid body.
+ */
+export function computeRotation(
+  state: {
+    center: Point;
+    startAngle: number;
+    origins: Map<string, { rotation: number; cx: number; cy: number }>;
+  },
+  world: Point,
+  snap: boolean
+): { id: string; rotation: number; cx: number; cy: number }[] {
+  let delta = angleFromCenter(state.center, world) - state.startAngle;
+  if (snap) delta = Math.round(delta / 15) * 15;
+  const radians = (delta * Math.PI) / 180;
+  const cos = Math.cos(radians);
+  const sin = Math.sin(radians);
+
+  const updates: { id: string; rotation: number; cx: number; cy: number }[] = [];
+  for (const [id, origin] of state.origins) {
+    const dx = origin.cx - state.center.x;
+    const dy = origin.cy - state.center.y;
+    updates.push({
+      id,
+      rotation: normalizeDegrees(origin.rotation + delta),
+      cx: state.center.x + dx * cos - dy * sin,
+      cy: state.center.y + dx * sin + dy * cos,
+    });
+  }
+  return updates;
+}
+
+export function normalizeDegrees(value: number): number {
+  const wrapped = value % 360;
+  return wrapped < 0 ? wrapped + 360 : wrapped;
+}

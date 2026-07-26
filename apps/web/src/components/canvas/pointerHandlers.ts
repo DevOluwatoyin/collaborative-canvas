@@ -1,10 +1,13 @@
 import type { FederatedPointerEvent } from "pixi.js";
 import { propString, type CanvasObject, type Tool } from "@infinite-canvas/shared";
-import { HANDLE_SIZE } from "./constants";
+import { HANDLE_SIZE, ROTATE_HIT_PAD } from "./constants";
 import {
+  angleFromCenter,
   computeGroupResize,
+  computeRotation,
   cursorForHandle,
   hitHandleAt,
+  hitRotateHandle,
   selectionBoundsFromIds,
 } from "./geometry";
 import { drawMarquee, drawStrokePreview } from "./overlayDraw";
@@ -47,6 +50,32 @@ export function handlePointerDown(
   }
 
   const bounds = selectionBoundsFromIds(selectedIds, host);
+
+  if (
+    tool === "select" &&
+    bounds &&
+    hitRotateHandle(bounds, world.x, world.y, host.viewport.zoom, ROTATE_HIT_PAD / host.viewport.zoom)
+  ) {
+    const center = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
+    const origins = new Map<string, { rotation: number; cx: number; cy: number }>();
+    for (const id of selectedIds) {
+      const o = host.getObject(id);
+      if (o) {
+        origins.set(id, {
+          rotation: o.rotation,
+          cx: o.x + o.width / 2,
+          cy: o.y + o.height / 2,
+        });
+      }
+    }
+    session.rotating = {
+      center,
+      startAngle: angleFromCenter(center, world),
+      origins,
+    };
+    return;
+  }
+
   const handle = hitHandleAt(bounds, world.x, world.y, HANDLE_SIZE / host.viewport.zoom);
   if (handle && tool === "select" && bounds) {
     const origins = new Map<string, Rect>();
@@ -115,6 +144,14 @@ export function handlePointerMove(
     return;
   }
 
+  if (session.rotating) {
+    // Shift snaps to 15-degree steps, the usual convention for angle gestures.
+    const updates = computeRotation(session.rotating, world, e.shiftKey);
+    host.callbacks.onObjectRotate(updates);
+    host.redrawHandles();
+    return;
+  }
+
   if (session.resizing) {
     const updates = computeGroupResize(
       session.resizing.corner,
@@ -168,7 +205,9 @@ function updateHoverCursor(
   session: PointerSession,
   world: Point
 ) {
-  if (session.dragging || session.resizing || session.marquee) return;
+  if (session.dragging || session.resizing || session.rotating || session.marquee) {
+    return;
+  }
 
   const tool = host.getTool();
   if (tool === "pan" || session.spaceDown) {
@@ -187,6 +226,12 @@ function updateHoverCursor(
   const selectedIds = host.getSelectedIds();
   if (selectedIds.size > 0) {
     const bounds = selectionBoundsFromIds(selectedIds, host);
+    if (
+      hitRotateHandle(bounds, world.x, world.y, host.viewport.zoom, ROTATE_HIT_PAD / host.viewport.zoom)
+    ) {
+      host.setCursor("grab");
+      return;
+    }
     const handle = hitHandleAt(
       bounds,
       world.x,

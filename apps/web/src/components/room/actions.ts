@@ -63,6 +63,7 @@ export function createRoomActions(store: RoomStore, refs: RoomRefs) {
 
   let presenceAt = 0;
   let presencePending: Partial<PresenceState> | null = null;
+  let presenceTimer: ReturnType<typeof setTimeout> | null = null;
 
   function setTool(tool: Tool) {
     store.setState({ tool });
@@ -391,6 +392,40 @@ export function createRoomActions(store: RoomStore, refs: RoomRefs) {
     });
   }
 
+  /** Object types that carry editable text. */
+  const TEXTUAL = new Set<CanvasObject["type"]>(["text", "sticky", "shape"]);
+
+  /**
+   * Applies a text property to every textual object in the selection. Objects
+   * without text (images, audio, paths) are skipped rather than accumulating
+   * props that nothing reads.
+   */
+  function patchTextProp(patch: Record<string, unknown>) {
+    const bindings = refs.bindings;
+    if (!bindings) return;
+    const ids = store.getState().selectedIds;
+    if (ids.length === 0) return;
+    const who = actor();
+    bindings.doc.transact(() => {
+      for (const id of ids) {
+        const obj = refs.objects.get(id);
+        if (!obj || !TEXTUAL.has(obj.type)) continue;
+        updateRoomObject(bindings, who, id, { props: patch });
+      }
+    });
+  }
+
+  function setTextAlign(align: "left" | "center" | "right") {
+    patchTextProp({ textAlign: align });
+  }
+
+  /** Toggles bold/italic based on the first textual object in the selection. */
+  function toggleTextFlag(flag: "bold" | "italic") {
+    const ids = store.getState().selectedIds;
+    const first = ids.map((id) => refs.objects.get(id)).find((o) => o && TEXTUAL.has(o.type));
+    patchTextProp({ [flag]: first?.props[flag] !== true });
+  }
+
   function setStyleOpacity(opacity: number, commit = true) {
     store.setState({ styleOpacity: opacity });
     const bindings = refs.bindings;
@@ -468,15 +503,13 @@ export function createRoomActions(store: RoomStore, refs: RoomRefs) {
    * Coalesces presence writes: the newest partial always wins and is flushed at
    * most every PRESENCE_INTERVAL_MS.
    */
-  function updatePresence(partial: Partial<PresenceState>) {
+  function flushPresence() {
+    presenceTimer = null;
     const bindings = refs.bindings;
-    if (!bindings) return;
-    presencePending = { ...(presencePending ?? {}), ...partial };
-    const now = performance.now();
-    if (now - presenceAt < PRESENCE_INTERVAL_MS) return;
-    presenceAt = now;
     const merged = presencePending;
+    if (!bindings || !merged) return;
     presencePending = null;
+    presenceAt = performance.now();
     const { identity } = store.getState();
     const current =
       (bindings.awareness.getLocalState()?.user as PresenceState | undefined) ?? {
@@ -486,8 +519,43 @@ export function createRoomActions(store: RoomStore, refs: RoomRefs) {
         cursor: null,
         viewportCenter: { x: 0, y: 0 },
         viewport: { x: 0, y: 0, width: 800, height: 600, zoom: 1 },
+        draggingIds: [],
       };
     bindings.awareness.setLocalStateField("user", { ...current, ...merged });
+  }
+
+  /**
+   * Coalesces presence writes: the newest partial wins and is flushed at most
+   * every PRESENCE_INTERVAL_MS, with a trailing flush so the final value is
+   * never stranded. Without the trailing timer a cursor came to rest one update
+   * behind where it actually stopped, and a "drag finished" signal arriving
+   * inside the throttle window would never be published at all.
+   */
+  function updatePresence(partial: Partial<PresenceState>) {
+    if (!refs.bindings) return;
+    presencePending = { ...(presencePending ?? {}), ...partial };
+    const elapsed = performance.now() - presenceAt;
+    if (elapsed >= PRESENCE_INTERVAL_MS) {
+      if (presenceTimer) {
+        clearTimeout(presenceTimer);
+        presenceTimer = null;
+      }
+      flushPresence();
+      return;
+    }
+    presenceTimer ??= setTimeout(flushPresence, PRESENCE_INTERVAL_MS - elapsed);
+  }
+
+  /**
+   * Publishes which objects this peer is dragging. The simulation host uses it
+   * to pin those bodies to the dragged position instead of overwriting it with
+   * simulated motion.
+   */
+  function setDraggingIds(ids: string[]) {
+    const current = store.getState().draggingIds;
+    if (current.length === 0 && ids.length === 0) return;
+    store.setState({ draggingIds: ids });
+    updatePresence({ draggingIds: ids });
   }
 
   return {
@@ -516,12 +584,15 @@ export function createRoomActions(store: RoomStore, refs: RoomRefs) {
     flingObject,
     spawnBulk,
     updatePresence,
+    setDraggingIds,
     duplicateSelected,
     reorderSelected,
     setStyleColor,
     setStyleSize,
     setStyleOpacity,
     setCornerRadius,
+    setTextAlign,
+    toggleTextFlag,
     undo,
     redo,
     setZoom,

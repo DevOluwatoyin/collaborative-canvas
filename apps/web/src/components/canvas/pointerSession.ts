@@ -23,6 +23,14 @@ export type DrawState = {
   targetShapeId: string | null;
 };
 
+/** Free rotation about the centre of the selection bounds. */
+export type RotateState = {
+  center: Point;
+  /** Pointer angle when the gesture began, in degrees. */
+  startAngle: number;
+  origins: Map<string, { rotation: number; cx: number; cy: number }>;
+};
+
 export type MarqueeState = { x0: number; y0: number; x1: number; y1: number };
 
 export type PointerSession = {
@@ -30,6 +38,7 @@ export type PointerSession = {
   panStart: { x: number; y: number; vx: number; vy: number };
   dragging: DragState | null;
   resizing: ResizeState | null;
+  rotating: RotateState | null;
   drawing: DrawState | null;
   marquee: MarqueeState | null;
   spaceDown: boolean;
@@ -42,6 +51,7 @@ export function createPointerSession(): PointerSession {
     panStart: { x: 0, y: 0, vx: 0, vy: 0 },
     dragging: null,
     resizing: null,
+    rotating: null,
     drawing: null,
     marquee: null,
     spaceDown: false,
