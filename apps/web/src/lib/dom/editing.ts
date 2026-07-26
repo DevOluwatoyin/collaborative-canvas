@@ -4,7 +4,7 @@
  * consulted: a canvas click moves focus to <body>, so the target alone reports no
  * text surface even while an editor is open.
  */
-export function isEditableElement(node: EventTarget | null): boolean {
+function isEditableElement(node: EventTarget | null): boolean {
   if (!(node instanceof HTMLElement)) return false;
   if (node instanceof HTMLInputElement || node instanceof HTMLTextAreaElement) {
     return true;

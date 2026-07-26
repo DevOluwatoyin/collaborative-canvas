@@ -299,3 +299,91 @@ const ROOM_ID_PATTERN = /^[A-Za-z0-9_-]{10}$/;
 export function isValidRoomId(value: string): boolean {
   return ROOM_ID_PATTERN.test(value);
 }
+
+/* ---------------------------------------------------------------------------
+   Media policy
+   --------------------------------------------------------------------------- */
+
+/**
+ * What the canvas accepts as an image or audio object.
+ *
+ * The collab server enforces the same rules independently — it cannot trust a
+ * client — so these values are mirrored in `apps/collab-server/src/media.ts` and
+ * must be changed together. This copy exists so the UI can reject a bad file
+ * immediately, with a message, instead of discovering it after an upload.
+ */
+export const MEDIA_IMAGE_TYPES = [
+  "image/png",
+  "image/jpeg",
+  "image/gif",
+  "image/webp",
+  "image/avif",
+] as const;
+
+export const MEDIA_AUDIO_TYPES = [
+  "audio/webm",
+  "audio/ogg",
+  "audio/mpeg",
+  "audio/mp4",
+  "audio/wav",
+] as const;
+
+/** Per-file ceiling. Matches MAX_MEDIA_BYTES on the server. */
+export const MEDIA_MAX_BYTES = 8 * 1024 * 1024;
+
+/**
+ * Largest file that may be inlined as a data URL when the server is unreachable.
+ * Inlined bytes live in the CRDT itself, so they are replicated to every peer and
+ * persisted in every browser — a generous limit here would let one offline upload
+ * bloat the document for everyone.
+ */
+export const MEDIA_MAX_INLINE_BYTES = 512 * 1024;
+
+/** `accept` attribute value for a file input, derived from the policy. */
+export const MEDIA_IMAGE_ACCEPT = MEDIA_IMAGE_TYPES.join(",");
+
+export function formatBytes(bytes: number): string {
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+  return `${Math.max(1, Math.round(bytes / 1024))}KB`;
+}
+
+function describeTypes(types: readonly string[]): string {
+  return types.map((t) => t.split("/")[1].toUpperCase()).join(", ");
+}
+
+export type MediaValidation = { ok: true } | { ok: false; message: string };
+
+/**
+ * Checks a file against the policy, returning a message that names both the
+ * problem and the fix rather than a bare rejection.
+ */
+export function validateMediaFile(
+  file: { name?: string; type: string; size: number },
+  kind: "image" | "audio"
+): MediaValidation {
+  const allowed: readonly string[] =
+    kind === "image" ? MEDIA_IMAGE_TYPES : MEDIA_AUDIO_TYPES;
+
+  if (!allowed.includes(file.type)) {
+    const label = file.type || "an unrecognised type";
+    return {
+      ok: false,
+      message: `${label} is not supported. Convert the file to ${describeTypes(allowed)} and try again.`,
+    };
+  }
+
+  if (file.size > MEDIA_MAX_BYTES) {
+    return {
+      ok: false,
+      message: `That file is ${formatBytes(file.size)}; the limit is ${formatBytes(
+        MEDIA_MAX_BYTES
+      )}. Compress or resize it and try again.`,
+    };
+  }
+
+  if (file.size === 0) {
+    return { ok: false, message: "That file is empty. Pick a different one." };
+  }
+
+  return { ok: true };
+}

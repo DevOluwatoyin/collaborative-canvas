@@ -2,7 +2,7 @@ import { resolveCollabUrl } from "@/lib/yjs/provider";
 import { getMediaBlob } from "./store";
 
 /** The collab server speaks both ws:// and http:// on the same host and port. */
-export function mediaHttpBase(): string {
+function mediaHttpBase(): string {
   try {
     const url = new URL(resolveCollabUrl());
     url.protocol = url.protocol === "wss:" ? "https:" : "http:";
@@ -14,11 +14,7 @@ export function mediaHttpBase(): string {
   }
 }
 
-export function isInlineSrc(src: string): boolean {
-  return src.startsWith("data:") || src.startsWith("blob:");
-}
-
-export type UploadedMedia = { id: string; url: string };
+type UploadedMedia = { id: string; url: string };
 
 /**
  * Uploads bytes to the collab server and returns an absolute URL, or null when

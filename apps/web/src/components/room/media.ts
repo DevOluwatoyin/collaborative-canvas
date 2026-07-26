@@ -28,7 +28,7 @@ export function pickFile(accept: string): Promise<File | null> {
   });
 }
 
-export type AudioRecording = {
+type AudioRecording = {
   blob: Blob;
   durationMs: number;
 };

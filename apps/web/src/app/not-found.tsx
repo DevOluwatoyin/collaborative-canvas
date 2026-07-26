@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { BackButton } from "@/components/navigation/BackButton";
 
 export const metadata: Metadata = {
   title: "Page not found",
@@ -19,13 +20,14 @@ export default function NotFound() {
         The link may be mistyped, or the board it pointed to was never created.
         Room links look like <code>/room/&lt;id&gt;</code>.
       </p>
-      <div className="mt-8 flex justify-center gap-3">
+      <div className="mt-8 flex flex-wrap justify-center gap-3">
         <Link
           href="/"
           className="rounded-2xl bg-[var(--accent)] px-5 py-3 text-sm font-semibold text-[#06201d] transition hover:brightness-110"
         >
           Go to the home page
         </Link>
+        <BackButton className="rounded-2xl border border-[var(--border)] px-5 py-3 text-sm font-medium text-[var(--foreground)] transition hover:bg-[var(--panel-hover)]" />
       </div>
     </main>
   );

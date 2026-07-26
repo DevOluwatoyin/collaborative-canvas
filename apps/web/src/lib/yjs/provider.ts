@@ -11,9 +11,9 @@ import type {
   PresenceState,
 } from "@infinite-canvas/shared";
 import { foldOps } from "@/lib/history/replay";
-import { readAllObjects, type YObjects } from "./objects";
+import type { YObjects } from "./objects";
 
-export const COLLAB_URL =
+const COLLAB_URL =
   process.env.NEXT_PUBLIC_COLLAB_URL || "ws://localhost:1234";
 
 /**
@@ -51,8 +51,8 @@ export function resolveCollabUrl(): string {
  * reconstructs the full session: snapshot + surviving ops, never a partial
  * canvas built from updates whose `create` was thrown away.
  */
-export const HISTORY_SOFT_LIMIT = 4000;
-export const HISTORY_FOLD_CHUNK = 1000;
+const HISTORY_SOFT_LIMIT = 4000;
+const HISTORY_FOLD_CHUNK = 1000;
 
 const META_HISTORY_BASE = "historyBase";
 const META_HISTORY_BASE_COUNT = "historyBaseCount";
@@ -261,10 +261,6 @@ export function foldHistory(bindings: RoomBindings): boolean {
     history.delete(0, chunk);
   });
   return true;
-}
-
-export function getAllObjects(objects: YObjects): CanvasObject[] {
-  return readAllObjects(objects);
 }
 
 export function getRemotePresence(

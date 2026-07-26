@@ -60,7 +60,7 @@ function applyLabelStyle(
   return style;
 }
 
-export function drawPolyline(
+function drawPolyline(
   g: Graphics,
   points: PathPoint[],
   color: number,
@@ -332,7 +332,7 @@ export async function ensureImageTexture(entry: DisplayEntry, obj: CanvasObject)
 }
 
 /** Resizes an already-attached image sprite when its object is resized. */
-export function resizeImageSprite(entry: DisplayEntry, obj: CanvasObject) {
+function resizeImageSprite(entry: DisplayEntry, obj: CanvasObject) {
   for (const child of entry.root.children) {
     if (child.label !== "img") continue;
     const sprite = child as Sprite;

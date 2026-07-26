@@ -3,7 +3,7 @@ import type { CanvasObject } from "@infinite-canvas/shared";
 
 const { Engine, Bodies, Body, World, Composite } = Matter;
 
-export type BodyState = {
+type BodyState = {
   x: number;
   y: number;
   rotation: number;

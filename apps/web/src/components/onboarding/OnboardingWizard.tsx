@@ -17,7 +17,7 @@ export function shouldShowOnboarding(): boolean {
   }
 }
 
-export function markOnboardingDone() {
+function markOnboardingDone() {
   try {
     localStorage.setItem(STORAGE_KEY, "1");
   } catch {

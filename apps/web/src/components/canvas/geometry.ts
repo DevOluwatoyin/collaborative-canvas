@@ -25,7 +25,7 @@ export function worldBoundsFromViewport(
   };
 }
 
-export function objectsBoundingBox(
+function objectsBoundingBox(
   objects: Iterable<Pick<CanvasObject, "x" | "y" | "width" | "height">>,
   pad = 0
 ): Rect | null {
@@ -52,10 +52,6 @@ export function objectsBoundingBox(
 
 /** Lookup indirection so callers can read from a Map or from the live engine. */
 export type ObjectLookup = { getObject: (id: string) => CanvasObject | undefined };
-
-export function lookupFromMap(map: Map<string, CanvasObject>): ObjectLookup {
-  return { getObject: (id) => map.get(id) };
-}
 
 export function selectionBoundsFromIds(
   selectedIds: Iterable<string>,
@@ -169,7 +165,7 @@ export function normalizeRect(x0: number, y0: number, x1: number, y1: number): R
 }
 
 /** Screen-space offset of the rotation grip above the selection's top edge. */
-export const ROTATE_HANDLE_OFFSET = 26;
+const ROTATE_HANDLE_OFFSET = 26;
 
 export function rotateHandlePosition(bounds: Rect, zoom: number): Point {
   return {
@@ -228,7 +224,7 @@ export function computeRotation(
   return updates;
 }
 
-export function normalizeDegrees(value: number): number {
+function normalizeDegrees(value: number): number {
   const wrapped = value % 360;
   return wrapped < 0 ? wrapped + 360 : wrapped;
 }

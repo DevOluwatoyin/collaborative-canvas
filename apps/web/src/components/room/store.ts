@@ -79,6 +79,13 @@ export type RoomState = {
    */
   audioCapture: { id: string; x: number; y: number } | null;
 
+  /**
+   * Transient, user-facing message — a rejected upload, a failed clipboard read.
+   * Held in room state so any action can raise one without threading callbacks
+   * through the component tree.
+   */
+  notice: { id: string; tone: "error" | "info"; message: string } | null;
+
   /** When non-null the canvas renders this snapshot instead of live state. */
   replayObjects: CanvasObject[] | null;
 };
@@ -150,6 +157,7 @@ export function createRoomStore(roomId: string, identity: GuestIdentity) {
     canUndo: false,
     canRedo: false,
     audioCapture: null,
+    notice: null,
     replayObjects: null,
   }));
 }

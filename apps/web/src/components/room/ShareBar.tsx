@@ -6,10 +6,22 @@ import { ShareIcon } from "@/components/ui/icons";
 
 const MESSAGE_MS = 2200;
 
+/** Collaborators shown individually before collapsing into a +N chip. */
+const MAX_AVATARS = 3;
+
+/** Slightly smaller on phones, where the header competes for width. */
+const AVATAR_SIZE = "h-6 w-6 text-[9px] sm:h-7 sm:w-7 sm:text-[10px]";
+
+/** "Ada Lovelace" -> "AL"; a single name falls back to its first two letters. */
+function initials(username: string): string {
+  const parts = username.trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return (parts[0] ?? "?").slice(0, 2).toUpperCase();
+}
+
 /**
- * Top-right presence and invite, mirroring where collaborative canvases put
- * their share affordance. The connection state rides along as a dot on the
- * user's own avatar rather than a separate status widget.
+ * Top-right presence and invite. Connection state rides along as a dot on the
+ * user's own avatar rather than occupying a separate status widget.
  */
 export function ShareBar() {
   const identity = useRoomState((s) => s.identity);
@@ -49,31 +61,40 @@ export function ShareBar() {
   return (
     <div className="pointer-events-none flex flex-col items-end gap-2">
       <div data-tour="share" className="ui-card pointer-events-auto flex items-center gap-2 p-1 pl-2">
-        <div className="flex -space-x-1.5">
+        {/* Overlapping stack, capped at MAX_AVATARS with a +N chip. The list is
+            unbounded, so without a cap a busy room pushes Share off-screen. */}
+        <div className="flex -space-x-2">
           <span
             title={`${identity.username} (you) — ${live ? "connected" : "offline"}`}
-            className="relative flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold text-white ring-2 ring-[var(--ui-bg)]"
+            className={`relative flex items-center justify-center rounded-full font-bold text-white ring-2 ring-[var(--ui-bg)] ${AVATAR_SIZE}`}
             style={{ background: identity.color }}
           >
-            {identity.username.slice(0, 2).toUpperCase()}
+            {initials(identity.username)}
             <span
-              className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-[var(--ui-bg)] ${live ? "bg-emerald-500" : "bg-amber-500"
-                }`}
+              className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-[var(--ui-bg)] ${
+                live ? "bg-emerald-500" : "bg-amber-500"
+              }`}
             />
           </span>
-          {remotes.slice(0, 3).map((r) => (
+          {remotes.slice(0, MAX_AVATARS).map((r) => (
             <span
               key={r.clientId ?? r.userId}
               title={r.username}
-              className="flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold text-white ring-2 ring-[var(--ui-bg)]"
+              className={`flex items-center justify-center rounded-full font-bold text-white ring-2 ring-[var(--ui-bg)] ${AVATAR_SIZE}`}
               style={{ background: r.color }}
             >
-              {r.username.slice(0, 2).toUpperCase()}
+              {initials(r.username)}
             </span>
           ))}
-          {remotes.length > 3 && (
-            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--ui-active)] text-[10px] font-bold ring-2 ring-[var(--ui-bg)]">
-              +{remotes.length - 3}
+          {remotes.length > MAX_AVATARS && (
+            <span
+              title={remotes
+                .slice(MAX_AVATARS)
+                .map((r) => r.username)
+                .join(", ")}
+              className={`flex items-center justify-center rounded-full bg-[var(--ui-active)] font-bold ring-2 ring-[var(--ui-bg)] ${AVATAR_SIZE}`}
+            >
+              +{remotes.length - MAX_AVATARS}
             </span>
           )}
         </div>

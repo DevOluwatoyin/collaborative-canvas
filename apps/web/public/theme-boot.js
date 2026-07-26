@@ -7,6 +7,7 @@
         : window.matchMedia("(prefers-color-scheme: dark)").matches
           ? "dark"
           : "light";
+    document.documentElement.classList.remove("light", "dark");
     document.documentElement.classList.add(mode);
     document.documentElement.dataset.theme = mode;
     document.documentElement.style.colorScheme = mode;

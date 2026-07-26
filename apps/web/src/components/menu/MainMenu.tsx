@@ -12,6 +12,7 @@ import {
   ExitIcon,
   HelpIcon,
   HistoryIcon,
+  LogoMark,
   MenuIcon,
   MoonIcon,
   RadarIcon,
@@ -55,8 +56,11 @@ export function MainMenu({
   const scope = selectedCount > 0 ? `selection (${selectedCount})` : "whole canvas";
 
   return (
-    <div data-tour="menu" className="ui-card pointer-events-auto flex items-center gap-1 p-1 pl-2.5">
-      <span className="font-[family-name:var(--font-display)] text-[15px] font-semibold tracking-tight">
+    <div className="ui-card pointer-events-auto flex items-center gap-1 p-1 sm:pl-2.5" data-tour="menu">
+      {/* The wordmark costs ~90px that a phone header cannot spare, so small
+          screens get the mark alone. */}
+      <LogoMark className="mx-1 shrink-0 sm:hidden" width={20} height={20} />
+      <span className="hidden font-[family-name:var(--font-display)] text-[15px] font-semibold tracking-tight sm:inline">
         Orbitboard
       </span>
 

@@ -1,5 +1,4 @@
 import {
-  createCanvasObject,
   propNumber,
   type CanvasObject,
   type HistoryOp,
@@ -144,28 +143,3 @@ export function historyOpFromDelete(
   };
 }
 
-export function seedDemoObject(
-  type: CanvasObject["type"],
-  x: number,
-  y: number,
-  id: string
-): CanvasObject {
-  return createCanvasObject({
-    id,
-    type,
-    x,
-    y,
-    width: type === "text" ? 200 : type === "audio" ? 180 : 160,
-    height: type === "text" ? 40 : type === "audio" ? 64 : 120,
-    props:
-      type === "sticky"
-        ? { text: "Sticky note", color: "#FDE68A" }
-        : type === "text"
-          ? { text: "Hello", color: "#1a2330", fontSize: 28 }
-          : type === "shape"
-            ? { shape: "rect", fill: "#3B82F6" }
-            : type === "audio"
-              ? { label: "Recording" }
-              : {},
-  });
-}

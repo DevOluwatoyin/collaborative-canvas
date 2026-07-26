@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from "react";
 
-export type ThemeMode = "light" | "dark";
+type ThemeMode = "light" | "dark";
 
 type ThemeContextValue = {
   theme: ThemeMode;
@@ -34,12 +34,16 @@ function readStoredTheme(): ThemeMode | null {
   return null;
 }
 
+/**
+ * Pins an explicit choice. Without a class the stylesheet resolves the palette
+ * from `color-scheme: light dark`, i.e. the OS preference, so "follow the
+ * system" is the absence of a class rather than a stamped value.
+ */
 function applyThemeClass(mode: ThemeMode) {
   const root = document.documentElement;
   root.classList.remove("light", "dark");
   root.classList.add(mode);
   root.dataset.theme = mode;
-  root.style.colorScheme = mode;
 }
 
 const themeListeners = new Set<() => void>();
@@ -52,20 +56,41 @@ function subscribeToTheme(onChange: () => void): () => void {
   themeListeners.add(onChange);
   const mq = window.matchMedia("(prefers-color-scheme: dark)");
   const onSystemChange = () => {
-    // An explicit choice wins over the OS preference.
+    // An explicit choice wins over the OS preference; otherwise the stylesheet
+    // has already followed the change and only React needs telling.
     if (readStoredTheme()) return;
-    applyThemeClass(getSystemTheme());
     notifyThemeListeners();
   };
+  const onStorageChange = (e: StorageEvent) => {
+    if (e.key === STORAGE_KEY) {
+      const stored = readStoredTheme();
+      if (stored) {
+        applyThemeClass(stored);
+      } else {
+        const root = document.documentElement;
+        root.classList.remove("light", "dark");
+        delete root.dataset.theme;
+      }
+      notifyThemeListeners();
+    }
+  };
+
   mq.addEventListener("change", onSystemChange);
+  window.addEventListener("storage", onStorageChange);
   return () => {
     themeListeners.delete(onChange);
     mq.removeEventListener("change", onSystemChange);
+    window.removeEventListener("storage", onStorageChange);
   };
 }
 
 function getThemeSnapshot(): ThemeMode {
-  return document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+  if (typeof document === "undefined") return "light";
+  const explicit = document.documentElement.dataset.theme;
+  if (explicit === "dark" || explicit === "light") return explicit;
+  const stored = readStoredTheme();
+  if (stored) return stored;
+  return getSystemTheme();
 }
 
 /**
@@ -82,9 +107,8 @@ function getServerThemeSnapshot(): ThemeMode {
 }
 
 /**
- * The theme is external state: `public/theme-boot.js` stamps it onto <html>
- * before paint so there is no flash. Reading it through useSyncExternalStore
- * lets React adopt that value during hydration; the previous
+ * The theme is external state owned by the document element. Reading it through
+ * useSyncExternalStore lets React adopt it during hydration; the previous
  * read-then-setState effect fired a cascading render on every mount.
  */
 export function ThemeProvider({ children }: { children: ReactNode }) {

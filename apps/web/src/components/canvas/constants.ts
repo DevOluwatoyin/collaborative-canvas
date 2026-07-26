@@ -5,7 +5,6 @@ export const MIN_SIZE = 24;
 export const ROTATE_HIT_PAD = 11;
 export const GRID_STEP = 80;
 export const SELECTION_COLOR = 0x0d9f90;
-export const STROKE_DEFAULT = 0x1a2330;
 
 /**
  * The canvas surface is painted by the WebGL renderer, not CSS, so it needs its

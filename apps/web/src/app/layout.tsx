@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Fraunces, Sora } from "next/font/google";
+import Script from "next/script";
 import { ThemeProvider } from "@/lib/theme/ThemeProvider";
 import "./globals.css";
 
@@ -45,6 +46,7 @@ export const metadata: Metadata = {
     title: "Orbitboard — Collaborative Infinite Canvas",
     description: DESCRIPTION,
     url: "/",
+    locale: "en_GB",
   },
   twitter: {
     card: "summary_large_image",
@@ -79,15 +81,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${display.variable} ${body.variable}`} suppressHydrationWarning>
       <head>
-        {/*
-          Stamps the stored theme onto <html> before first paint so the canvas and
-          panels never flash the wrong palette. It has to be a plain blocking
-          script in <head>: next/script's beforeInteractive strategy renders a
-          script element inside the component tree, which React refuses to execute
-          on the client and warns about.
-        */}
-        {/* eslint-disable-next-line @next/next/no-sync-scripts */}
-        <script src="/theme-boot.js" />
+        <Script src="/theme-boot.js" strategy="beforeInteractive" />
       </head>
       <body className="antialiased">
         <ThemeProvider>{children}</ThemeProvider>

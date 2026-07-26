@@ -17,9 +17,10 @@ import { StylePanel } from "@/components/style/StylePanel";
 import { MainMenu } from "@/components/menu/MainMenu";
 import { ShareBar } from "@/components/room/ShareBar";
 import { AudioRecorder } from "@/components/room/AudioRecorder";
+import { NoticeToast } from "@/components/room/NoticeToast";
 import { AudioPlayerBar } from "@/components/room/AudioPlayer";
 import { Minimap } from "@/components/minimap/Minimap";
-import { FitViewIcon, SlidersIcon } from "@/components/ui/icons";
+import { ChevronUpIcon, FitViewIcon, SlidersIcon } from "@/components/ui/icons";
 import { ReplayPanel } from "@/components/replay/ReplayPanel";
 import {
   OnboardingWizard,
@@ -48,6 +49,11 @@ function RoomInner() {
   // guest-name gate.
   const [panelOpen, setPanelOpen] = useState(
     () => typeof window === "undefined" || window.innerWidth >= 768
+  );
+  // Same reasoning for the edit actions, at the smaller `sm` breakpoint where
+  // the bottom cluster starts competing with the tool strip for width.
+  const [actionsOpen, setActionsOpen] = useState(
+    () => typeof window === "undefined" || window.innerWidth >= 640
   );
   const actions = useRoomActions();
   const { store } = useRoomHandles();
@@ -180,12 +186,12 @@ function RoomInner() {
           <div className="absolute left-1/2 top-3 -translate-x-1/2">
             <button
               type="button"
-              className="ui-card pointer-events-auto flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium"
+              className="ui-card pointer-events-auto flex items-center gap-1.5 px-2 py-1.5 text-[12px] font-medium sm:px-3"
               title="Zoom to fit every object in view"
               onClick={actions.zoomToFit}
             >
               <FitViewIcon width={14} height={14} />
-              Fit view
+              <span className="hidden sm:inline">Fit view</span>
             </button>
           </div>
         )}
@@ -209,12 +215,31 @@ function RoomInner() {
         {/* Narrow screens cannot fit nine tools plus the actions row on one
             line, so the cluster is allowed to shrink and the tool strip wraps
             within the available width instead of overflowing the viewport. */}
+        {/* Narrow screens cannot fit the actions row and nine tools at once, so
+            the actions row collapses behind a caret there and stays open on
+            wider viewports, where there is room for both. */}
         <div className="absolute inset-x-2 bottom-3 flex flex-col items-center gap-2 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2">
-          <ActionsBar />
-          <ToolStrip />
+          {actionsOpen && <ActionsBar />}
+          <div className="flex max-w-full items-end gap-2">
+            <button
+              type="button"
+              className="ui-card ui-icon-btn pointer-events-auto shrink-0 sm:hidden"
+              title={actionsOpen ? "Hide edit actions" : "Show edit actions"}
+              aria-label={actionsOpen ? "Hide edit actions" : "Show edit actions"}
+              aria-expanded={actionsOpen}
+              onClick={() => setActionsOpen((v) => !v)}
+            >
+              <ChevronUpIcon
+                className={actionsOpen ? "rotate-180" : ""}
+                style={{ transition: "transform .15s ease" }}
+              />
+            </button>
+            <ToolStrip />
+          </div>
         </div>
       </div>
 
+      <NoticeToast />
       <AudioRecorder />
       <AudioPlayerBar />
 

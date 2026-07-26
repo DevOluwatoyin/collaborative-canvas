@@ -11,8 +11,8 @@ import {
  * last-write-wins across the *whole* object — user A moving a sticky would
  * clobber user B's text edit. Per-field maps let Yjs merge them independently.
  */
-export type YProps = Y.Map<unknown>;
-export type YObject = Y.Map<unknown>;
+type YProps = Y.Map<unknown>;
+type YObject = Y.Map<unknown>;
 export type YObjects = Y.Map<YObject>;
 
 /**
@@ -30,7 +30,7 @@ function isYMap(value: unknown): value is Y.Map<unknown> {
   );
 }
 
-export function createYObject(obj: CanvasObject): YObject {
+function createYObject(obj: CanvasObject): YObject {
   const y: YObject = new Y.Map();
   for (const key of CANVAS_OBJECT_FIELDS) {
     const value = obj[key];
@@ -178,16 +178,7 @@ export function deleteYObject(objects: YObjects, id: string): void {
   objects.delete(id);
 }
 
-export function readAllObjects(objects: YObjects): CanvasObject[] {
-  const out: CanvasObject[] = [];
-  objects.forEach((y, id) => {
-    const obj = readObject(y);
-    out.push(obj.id ? obj : { ...obj, id });
-  });
-  return out;
-}
-
-export type ObjectChangeSet = {
+type ObjectChangeSet = {
   changed: Set<string>;
   removed: Set<string>;
 };

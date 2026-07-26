@@ -47,20 +47,6 @@ export const PencilIcon = (p: IconProps) => (
   </Svg>
 );
 
-export const EraserIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M8.5 20H20" />
-    <path d="M13.4 4.6l6 6a1.5 1.5 0 010 2.1l-5.3 5.3a1.5 1.5 0 01-2.1 0l-6-6a1.5 1.5 0 010-2.1l5.3-5.3a1.5 1.5 0 012.1 0z" />
-  </Svg>
-);
-
-export const ArrowToolIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M6 18L18 6" />
-    <path d="M11 6h7v7" />
-  </Svg>
-);
-
 export const TextIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M5 6h14" />
@@ -101,12 +87,6 @@ export const PhysicsIcon = (p: IconProps) => (
 export const ChevronUpIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M6 14.5l6-6 6 6" />
-  </Svg>
-);
-
-export const ChevronRightIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M9.5 6l6 6-6 6" />
   </Svg>
 );
 
@@ -270,12 +250,6 @@ export const TriangleIcon = (p: IconProps) => (
   </Svg>
 );
 
-export const LineIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M5 19L19 5" />
-  </Svg>
-);
-
 export const ExitIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M14 4h4a2 2 0 012 2v12a2 2 0 01-2 2h-4" />
@@ -288,12 +262,6 @@ export const SignOutIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M12 3a9 9 0 106.4 15.3" />
     <path d="M12 3v9" />
-  </Svg>
-);
-
-export const CheckIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M5 12.5l4.5 4.5L19 7" />
   </Svg>
 );
 
@@ -374,4 +342,31 @@ export const CloseIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M6 6l12 12M18 6L6 18" />
   </Svg>
+);
+
+/** App mark, matching app/icon.svg. Used where the wordmark will not fit. */
+export const LogoMark = (props: IconProps) => (
+  <svg
+    width="22"
+    height="22"
+    viewBox="0 0 64 64"
+    role="img"
+    aria-label="Orbitboard"
+    {...props}
+  >
+    <rect width="64" height="64" rx="14" fill="#0d9f90" />
+    <ellipse
+      cx="32"
+      cy="32"
+      rx="24"
+      ry="10"
+      fill="none"
+      stroke="#06201d"
+      strokeWidth="3.5"
+      opacity="0.55"
+      transform="rotate(-28 32 32)"
+    />
+    <circle cx="32" cy="32" r="9" fill="#06201d" />
+    <circle cx="49" cy="21" r="4" fill="#e85d4c" />
+  </svg>
 );

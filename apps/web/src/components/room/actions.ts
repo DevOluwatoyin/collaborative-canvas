@@ -3,25 +3,18 @@
 import { nanoid } from "nanoid";
 import {
   createDefaultPhysics,
+  MEDIA_IMAGE_ACCEPT,
+  validateMediaFile,
   type CanvasObject,
   type PathPoint,
-  type PresenceState,
   type ShapeKind,
   type Tool,
 } from "@infinite-canvas/shared";
-import {
-  colorPatch,
-  fontSizeFor,
-  sizePatch,
-  strokeWidthFor,
-  type SizeName,
-} from "@/components/style/styles";
-import {
-  setForceMode,
-  setGravity as setGravityMeta,
-} from "@/lib/yjs/provider";
-import { selectedObjects } from "./store";
-import type { AttractMode, RoomRefs, RoomStore } from "./store";
+import { fontSizeFor, strokeWidthFor } from "@/components/style/styles";
+import { createClipboardActions } from "./actions/clipboard";
+import { createPresenceActions } from "./actions/presence";
+import { createStyleActions } from "./actions/style";
+import type { RoomRefs, RoomStore } from "./store";
 import type { ObjectStyle } from "./mutations";
 import { pickFile } from "./media";
 import {
@@ -32,18 +25,11 @@ import {
   deleteRoomObject,
   duplicateRoomObjects,
   flingRoomObject,
-  pasteRoomObjects,
   recordUndoDiff,
   reorderRoomObjects,
   spawnBulkObjects,
   updateRoomObject,
 } from "./mutations";
-
-/** Marks clipboard text as ours, so pasting foreign text is ignored. */
-const CLIPBOARD_KIND = "orbitboard/objects";
-
-/** Awareness is throttled to ~16Hz; cursors do not need a frame-accurate feed. */
-const PRESENCE_INTERVAL_MS = 60;
 
 export type RoomActions = ReturnType<typeof createRoomActions>;
 
@@ -53,17 +39,13 @@ export type RoomActions = ReturnType<typeof createRoomActions>;
  * render and pushed a re-render through every consumer.
  */
 export function createRoomActions(store: RoomStore, refs: RoomRefs) {
-  /** Fallback for browsers that block clipboard access from canvas events. */
-  let internalClipboard: CanvasObject[] = [];
-
   const actor = () => {
     const { identity } = store.getState();
     return { id: identity.id, username: identity.username };
   };
 
-  let presenceAt = 0;
-  let presencePending: Partial<PresenceState> | null = null;
-  let presenceTimer: ReturnType<typeof setTimeout> | null = null;
+  const presence = createPresenceActions(store, refs);
+  const style = createStyleActions(store, refs, actor);
 
   function setTool(tool: Tool) {
     store.setState({ tool });
@@ -92,23 +74,19 @@ export function createRoomActions(store: RoomStore, refs: RoomRefs) {
     store.setState({ editingTextId });
   }
 
+  /** Raises a transient message. A fresh id restarts the auto-dismiss timer. */
+  function notify(message: string, tone: "error" | "info" = "error") {
+    store.setState({ notice: { id: nanoid(6), tone, message } });
+  }
+
+  function dismissNotice() {
+    store.setState({ notice: null });
+  }
+
   function setReplayObjects(replayObjects: CanvasObject[] | null) {
     store.setState({ replayObjects });
   }
 
-  /**
-   * Written to the document rather than to local state: only the elected host
-   * simulates, so a force mode held by a non-host peer would do nothing.
-   */
-  function setAttractMode(attractMode: AttractMode) {
-    if (!refs.bindings) return;
-    setForceMode(refs.bindings.meta, attractMode);
-  }
-
-  function setGravityEnabled(on: boolean) {
-    if (!refs.bindings) return;
-    setGravityMeta(refs.bindings.meta, on);
-  }
 
   /** Turns physics on for the selection, or off if all of it is already on. */
   function togglePhysicsOnSelected() {
@@ -230,12 +208,25 @@ export function createRoomActions(store: RoomStore, refs: RoomRefs) {
     const bindings = refs.bindings;
     if (!bindings) return;
     const world = centerOfView();
-    const picked = pickFile("image/*");
+    const picked = pickFile(MEDIA_IMAGE_ACCEPT);
     void (async () => {
       const file = await picked;
       if (!file) return;
-      const id = await createImageObject(bindings, actor(), world, file);
-      store.setState({ selectedIds: [id], tool: "select" });
+
+      // The accept attribute is only a hint — a user can pick any file through
+      // "All files", and drag-and-drop bypasses it entirely.
+      const check = validateMediaFile(file, "image");
+      if (!check.ok) {
+        notify(check.message);
+        return;
+      }
+
+      const result = await createImageObject(bindings, actor(), world, file);
+      if (!result.ok) {
+        notify(result.message);
+        return;
+      }
+      store.setState({ selectedIds: [result.id], tool: "select" });
     })();
   }
 
@@ -246,53 +237,6 @@ export function createRoomActions(store: RoomStore, refs: RoomRefs) {
     store.setState({ audioCapture: { id: nanoid(8), x: world.x, y: world.y } });
   }
 
-  /**
-   * Objects are copied as JSON text so a copy can cross tabs and windows. The
-   * in-memory buffer is the fallback for browsers that refuse clipboard writes
-   * without a user-activation the canvas cannot always provide.
-   */
-  async function copySelection(cut = false): Promise<number> {
-    const objects = selectedObjects(refs, store.getState().selectedIds);
-    if (objects.length === 0) return 0;
-    const payload = JSON.stringify({ type: CLIPBOARD_KIND, objects });
-    internalClipboard = objects;
-    try {
-      await navigator.clipboard?.writeText(payload);
-    } catch {
-      // System clipboard unavailable; the internal buffer still serves paste.
-    }
-    if (cut) removeSelected();
-    return objects.length;
-  }
-
-  async function readClipboardObjects(): Promise<CanvasObject[]> {
-    try {
-      const text = await navigator.clipboard?.readText();
-      if (text) {
-        const parsed: unknown = JSON.parse(text);
-        if (
-          typeof parsed === "object" &&
-          parsed !== null &&
-          (parsed as { type?: string }).type === CLIPBOARD_KIND &&
-          Array.isArray((parsed as { objects?: unknown }).objects)
-        ) {
-          return (parsed as { objects: CanvasObject[] }).objects;
-        }
-      }
-    } catch {
-      // Clipboard read denied or holds something else; fall back below.
-    }
-    return internalClipboard;
-  }
-
-  async function pasteClipboard() {
-    const bindings = refs.bindings;
-    if (!bindings) return;
-    const objects = await readClipboardObjects();
-    if (objects.length === 0) return;
-    const ids = pasteRoomObjects(bindings, actor(), objects);
-    if (ids.length > 0) store.setState({ selectedIds: ids, tool: "select" });
-  }
 
   function cancelAudioCapture() {
     store.setState({ audioCapture: null });
@@ -303,8 +247,19 @@ export function createRoomActions(store: RoomStore, refs: RoomRefs) {
     const target = store.getState().audioCapture;
     store.setState({ audioCapture: null });
     if (!bindings || !target) return;
-    const id = await createAudioObject(bindings, actor(), target, blob, durationMs);
-    store.setState({ selectedIds: [id], tool: "select" });
+
+    const check = validateMediaFile(blob, "audio");
+    if (!check.ok) {
+      notify(check.message);
+      return;
+    }
+
+    const result = await createAudioObject(bindings, actor(), target, blob, durationMs);
+    if (!result.ok) {
+      notify(result.message);
+      return;
+    }
+    store.setState({ selectedIds: [result.id], tool: "select" });
   }
 
   function flingObject(id: string, vx: number, vy: number) {
@@ -332,113 +287,6 @@ export function createRoomActions(store: RoomStore, refs: RoomRefs) {
     reorderRoomObjects(refs.bindings, actor(), store.getState().selectedIds, edge);
   }
 
-  /**
-   * Style edits apply to the selection when there is one, and always update the
-   * stored default so the next created object inherits what the user picked.
-   */
-  function setStyleColor(hex: string) {
-    store.setState({ styleColor: hex });
-    const bindings = refs.bindings;
-    if (!bindings) return;
-    const ids = store.getState().selectedIds;
-    if (ids.length === 0) return;
-    const who = actor();
-    bindings.doc.transact(() => {
-      for (const id of ids) {
-        const obj = refs.objects.get(id);
-        if (!obj) continue;
-        const patch = colorPatch(obj.type, hex);
-        if (patch) updateRoomObject(bindings, who, id, { props: patch });
-      }
-    });
-  }
-
-  function setStyleSize(size: SizeName) {
-    store.setState({ styleSize: size });
-    const bindings = refs.bindings;
-    if (!bindings) return;
-    const ids = store.getState().selectedIds;
-    if (ids.length === 0) return;
-    const who = actor();
-    bindings.doc.transact(() => {
-      for (const id of ids) {
-        const obj = refs.objects.get(id);
-        if (!obj) continue;
-        const patch = sizePatch(obj.type, size);
-        if (patch) updateRoomObject(bindings, who, id, { props: patch });
-      }
-    });
-  }
-
-  /** Applies to the selection when there is one, otherwise sets the default. */
-  function setCornerRadius(radius: number, commit = true) {
-    store.setState({ styleCornerRadius: radius });
-    const bindings = refs.bindings;
-    if (!bindings) return;
-    const ids = store.getState().selectedIds;
-    if (ids.length === 0) return;
-    const who = actor();
-    bindings.doc.transact(() => {
-      for (const id of ids) {
-        const obj = refs.objects.get(id);
-        if (
-          !obj ||
-          (obj.type !== "shape" && obj.type !== "sticky" && obj.type !== "image")
-        ) {
-          continue;
-        }
-        updateRoomObject(bindings, who, id, { props: { cornerRadius: radius } }, commit);
-      }
-    });
-  }
-
-  /** Object types that carry editable text. */
-  const TEXTUAL = new Set<CanvasObject["type"]>(["text", "sticky", "shape"]);
-
-  /**
-   * Applies a text property to every textual object in the selection. Objects
-   * without text (images, audio, paths) are skipped rather than accumulating
-   * props that nothing reads.
-   */
-  function patchTextProp(patch: Record<string, unknown>) {
-    const bindings = refs.bindings;
-    if (!bindings) return;
-    const ids = store.getState().selectedIds;
-    if (ids.length === 0) return;
-    const who = actor();
-    bindings.doc.transact(() => {
-      for (const id of ids) {
-        const obj = refs.objects.get(id);
-        if (!obj || !TEXTUAL.has(obj.type)) continue;
-        updateRoomObject(bindings, who, id, { props: patch });
-      }
-    });
-  }
-
-  function setTextAlign(align: "left" | "center" | "right") {
-    patchTextProp({ textAlign: align });
-  }
-
-  /** Toggles bold/italic based on the first textual object in the selection. */
-  function toggleTextFlag(flag: "bold" | "italic") {
-    const ids = store.getState().selectedIds;
-    const first = ids.map((id) => refs.objects.get(id)).find((o) => o && TEXTUAL.has(o.type));
-    patchTextProp({ [flag]: first?.props[flag] !== true });
-  }
-
-  function setStyleOpacity(opacity: number, commit = true) {
-    store.setState({ styleOpacity: opacity });
-    const bindings = refs.bindings;
-    if (!bindings) return;
-    const ids = store.getState().selectedIds;
-    if (ids.length === 0) return;
-    const who = actor();
-    bindings.doc.transact(() => {
-      // Dragging the slider writes without history; the final value records one
-      // op instead of one per pixel of travel.
-      for (const id of ids) updateRoomObject(bindings, who, id, { opacity }, commit);
-    });
-  }
 
   function undo() {
     const bindings = refs.bindings;
@@ -499,66 +347,13 @@ export function createRoomActions(store: RoomStore, refs: RoomRefs) {
     });
   }
 
-  /**
-   * Coalesces presence writes: the newest partial always wins and is flushed at
-   * most every PRESENCE_INTERVAL_MS.
-   */
-  function flushPresence() {
-    presenceTimer = null;
-    const bindings = refs.bindings;
-    const merged = presencePending;
-    if (!bindings || !merged) return;
-    presencePending = null;
-    presenceAt = performance.now();
-    const { identity } = store.getState();
-    const current =
-      (bindings.awareness.getLocalState()?.user as PresenceState | undefined) ?? {
-        userId: identity.id,
-        username: identity.username,
-        color: identity.color,
-        cursor: null,
-        viewportCenter: { x: 0, y: 0 },
-        viewport: { x: 0, y: 0, width: 800, height: 600, zoom: 1 },
-        draggingIds: [],
-      };
-    bindings.awareness.setLocalStateField("user", { ...current, ...merged });
-  }
 
-  /**
-   * Coalesces presence writes: the newest partial wins and is flushed at most
-   * every PRESENCE_INTERVAL_MS, with a trailing flush so the final value is
-   * never stranded. Without the trailing timer a cursor came to rest one update
-   * behind where it actually stopped, and a "drag finished" signal arriving
-   * inside the throttle window would never be published at all.
-   */
-  function updatePresence(partial: Partial<PresenceState>) {
-    if (!refs.bindings) return;
-    presencePending = { ...(presencePending ?? {}), ...partial };
-    const elapsed = performance.now() - presenceAt;
-    if (elapsed >= PRESENCE_INTERVAL_MS) {
-      if (presenceTimer) {
-        clearTimeout(presenceTimer);
-        presenceTimer = null;
-      }
-      flushPresence();
-      return;
-    }
-    presenceTimer ??= setTimeout(flushPresence, PRESENCE_INTERVAL_MS - elapsed);
-  }
-
-  /**
-   * Publishes which objects this peer is dragging. The simulation host uses it
-   * to pin those bodies to the dragged position instead of overwriting it with
-   * simulated motion.
-   */
-  function setDraggingIds(ids: string[]) {
-    const current = store.getState().draggingIds;
-    if (current.length === 0 && ids.length === 0) return;
-    store.setState({ draggingIds: ids });
-    updatePresence({ draggingIds: ids });
-  }
+  const clipboard = createClipboardActions(store, refs, actor, removeSelected);
 
   return {
+    ...presence,
+    ...style,
+    ...clipboard,
     setTool,
     setShapeKind,
     setSelectedIds,
@@ -566,8 +361,6 @@ export function createRoomActions(store: RoomStore, refs: RoomRefs) {
     addToSelection,
     setEditingTextId,
     setReplayObjects,
-    setAttractMode,
-    setGravityEnabled,
     togglePhysicsOnSelected,
     updateObject,
     removeObject,
@@ -577,22 +370,14 @@ export function createRoomActions(store: RoomStore, refs: RoomRefs) {
     createAt,
     insertImage,
     startAudioAtCenter,
-    copySelection,
-    pasteClipboard,
     cancelAudioCapture,
     commitAudioCapture,
     flingObject,
     spawnBulk,
-    updatePresence,
-    setDraggingIds,
+    notify,
+    dismissNotice,
     duplicateSelected,
     reorderSelected,
-    setStyleColor,
-    setStyleSize,
-    setStyleOpacity,
-    setCornerRadius,
-    setTextAlign,
-    toggleTextFlag,
     undo,
     redo,
     setZoom,

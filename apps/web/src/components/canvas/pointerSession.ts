@@ -1,6 +1,6 @@
 import type { HandleCorner, Point, Rect } from "./types";
 
-export type DragState = {
+type DragState = {
   ids: string[];
   origins: Map<string, Point>;
   startWorld: Point;
@@ -11,27 +11,27 @@ export type DragState = {
   vy: number;
 };
 
-export type ResizeState = {
+type ResizeState = {
   corner: HandleCorner;
   startBounds: Rect;
   startWorld: Point;
   origins: Map<string, Rect>;
 };
 
-export type DrawState = {
+type DrawState = {
   points: Point[];
   targetShapeId: string | null;
 };
 
 /** Free rotation about the centre of the selection bounds. */
-export type RotateState = {
+type RotateState = {
   center: Point;
   /** Pointer angle when the gesture began, in degrees. */
   startAngle: number;
   origins: Map<string, { rotation: number; cx: number; cy: number }>;
 };
 
-export type MarqueeState = { x0: number; y0: number; x1: number; y1: number };
+type MarqueeState = { x0: number; y0: number; x1: number; y1: number };
 
 export type PointerSession = {
   panning: boolean;
