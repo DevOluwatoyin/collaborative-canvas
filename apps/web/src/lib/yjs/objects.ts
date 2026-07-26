@@ -44,48 +44,92 @@ export function createYObject(obj: CanvasObject): YObject {
   return y;
 }
 
-function readProps(y: YObject): Record<string, unknown> {
-  const raw = y.get("props");
-  if (isYMap(raw)) return raw.toJSON() as Record<string, unknown>;
-  if (raw && typeof raw === "object") return { ...(raw as Record<string, unknown>) };
+/**
+ * Field accessor that works for both the current per-field Y.Map layout and the
+ * legacy layout, where each object was stored as one plain JSON value. Rooms
+ * created before the schema change still hold legacy values in IndexedDB and on
+ * the server, and reading them must not throw.
+ */
+function fieldReader(value: unknown): (key: string) => unknown {
+  if (isYMap(value)) return (key) => value.get(key);
+  if (value !== null && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return (key) => record[key];
+  }
+  return () => undefined;
+}
+
+function readProps(get: (key: string) => unknown): Record<string, unknown> {
+  const raw = get("props");
+  if (isYMap(raw)) return raw.toJSON();
+  if (raw !== null && typeof raw === "object") {
+    return { ...(raw as Record<string, unknown>) };
+  }
   return {};
 }
 
-function readString(y: YObject, key: string, fallback = ""): string {
-  const value = y.get(key);
-  return typeof value === "string" ? value : fallback;
+function asNumber(value: unknown, fallback: number): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
 /** Materialise a plain CanvasObject so the rest of the app never touches Yjs. */
-export function readObject(y: YObject): CanvasObject {
+export function readObject(source: unknown): CanvasObject {
+  const get = fieldReader(source);
+  const id = get("id");
+  const type = get("type");
   return {
-    id: readString(y, "id"),
-    type: (y.get("type") ?? "shape") as CanvasObject["type"],
-    x: Number(y.get("x") ?? 0),
-    y: Number(y.get("y") ?? 0),
-    rotation: Number(y.get("rotation") ?? 0),
-    scaleX: Number(y.get("scaleX") ?? 1),
-    scaleY: Number(y.get("scaleY") ?? 1),
-    width: Number(y.get("width") ?? 0),
-    height: Number(y.get("height") ?? 0),
-    zIndex: Number(y.get("zIndex") ?? 0),
-    opacity: typeof y.get("opacity") === "number" ? (y.get("opacity") as number) : 1,
-    props: readProps(y),
-    physics: (y.get("physics") as CanvasObject["physics"]) ?? createDefaultPhysics(false),
-    vx: Number(y.get("vx") ?? 0),
-    vy: Number(y.get("vy") ?? 0),
-    createdBy: y.get("createdBy") as string | undefined,
-    createdAt: y.get("createdAt") as number | undefined,
-    updatedAt: y.get("updatedAt") as number | undefined,
+    id: typeof id === "string" ? id : "",
+    type: (typeof type === "string" ? type : "shape") as CanvasObject["type"],
+    x: asNumber(get("x"), 0),
+    y: asNumber(get("y"), 0),
+    rotation: asNumber(get("rotation"), 0),
+    scaleX: asNumber(get("scaleX"), 1),
+    scaleY: asNumber(get("scaleY"), 1),
+    width: asNumber(get("width"), 0),
+    height: asNumber(get("height"), 0),
+    zIndex: asNumber(get("zIndex"), 0),
+    opacity: asNumber(get("opacity"), 1),
+    props: readProps(get),
+    physics: (get("physics") as CanvasObject["physics"]) ?? createDefaultPhysics(false),
+    vx: asNumber(get("vx"), 0),
+    vy: asNumber(get("vy"), 0),
+    createdBy: get("createdBy") as string | undefined,
+    createdAt: get("createdAt") as number | undefined,
+    updatedAt: get("updatedAt") as number | undefined,
   };
+}
+
+/**
+ * Rewrites any legacy plain-value entries as per-field Y.Maps. Converging on one
+ * layout is safe to run from any peer: every client derives the same replacement
+ * from the same source value.
+ */
+export function migrateLegacyObjects(objects: YObjects): number {
+  const legacy: CanvasObject[] = [];
+  objects.forEach((value, id) => {
+    if (isYMap(value)) return;
+    const obj = readObject(value);
+    legacy.push(obj.id ? obj : { ...obj, id });
+  });
+  if (legacy.length === 0) return 0;
+
+  const apply = () => {
+    for (const obj of legacy) objects.set(obj.id, createYObject(obj));
+  };
+  const doc = objects.doc;
+  if (doc) doc.transact(apply);
+  else apply();
+  console.info(`[orbitboard] migrated ${legacy.length} legacy object(s) to Y.Map`);
+  return legacy.length;
 }
 
 export function upsertYObject(objects: YObjects, obj: CanvasObject): void {
   const existing = objects.get(obj.id);
-  if (existing) {
+  if (isYMap(existing)) {
     patchYObject(objects, obj.id, obj);
     return;
   }
+  // Missing, or a legacy plain value: replace it outright.
   objects.set(obj.id, createYObject(obj));
 }
 
@@ -99,7 +143,9 @@ export function patchYObject(
   patch: Partial<CanvasObject>,
 ): void {
   const y = objects.get(id);
-  if (!y) return;
+  // A legacy plain value has no per-field API; migrateLegacyObjects converts
+  // those on load, so anything still un-migrated here is simply skipped.
+  if (!isYMap(y)) return;
   const doc = objects.doc;
   const apply = () => {
     for (const key of CANVAS_OBJECT_FIELDS) {
@@ -134,7 +180,10 @@ export function deleteYObject(objects: YObjects, id: string): void {
 
 export function readAllObjects(objects: YObjects): CanvasObject[] {
   const out: CanvasObject[] = [];
-  objects.forEach((y) => out.push(readObject(y)));
+  objects.forEach((y, id) => {
+    const obj = readObject(y);
+    out.push(obj.id ? obj : { ...obj, id });
+  });
   return out;
 }
 

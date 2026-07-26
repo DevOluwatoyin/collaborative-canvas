@@ -1,4 +1,4 @@
-import { Container, Graphics, Text, TextStyle, Sprite, Assets } from "pixi.js";
+import { Container, Graphics, Text, TextStyle, Sprite, Texture } from "pixi.js";
 import {
   propNumber,
   propPoints,
@@ -146,6 +146,9 @@ export function updateDisplay(
     entry.bg.fill(0xe8ecf1);
     entry.bg.stroke({ width: 2, color: 0xcbd5e1 });
     void ensureImage(entry, obj);
+    // A resize redraws the display but reuses the sprite, so it needs resizing
+    // explicitly rather than waiting for a fresh load.
+    resizeImageSprite(entry, obj);
   } else if (obj.type === "audio") {
     entry.bg.roundRect(0, 0, obj.width, obj.height, 12);
     entry.bg.fill(0x1e293b);
@@ -175,7 +178,35 @@ function lodColor(obj: CanvasObject): number {
   }
 }
 
+/** In-flight or completed loads, so a redraw does not restart a load. */
 const imageAttempts = new Set<string>();
+const textureCache = new Map<string, Texture>();
+
+/**
+ * Decodes an image URL into a texture via an HTMLImageElement.
+ *
+ * Pixi's `Assets.load` picks a parser from the URL extension, and neither of the
+ * two forms used here has one: media served by the collab server is
+ * `/media/<id>`, and the offline fallback is a `data:` or `blob:` URL. Assets
+ * therefore refused to load them and every image rendered as an empty
+ * placeholder. Going through the browser's own image decoder sidesteps parser
+ * resolution entirely.
+ */
+async function loadTexture(src: string): Promise<Texture> {
+  const cached = textureCache.get(src);
+  if (cached) return cached;
+
+  const image = new Image();
+  // Same-origin data/blob URLs must not carry the CORS attribute, but remote
+  // media must, or the canvas is tainted and PNG export throws.
+  if (/^https?:/i.test(src)) image.crossOrigin = "anonymous";
+  image.src = src;
+  await image.decode();
+
+  const texture = Texture.from(image);
+  textureCache.set(src, texture);
+  return texture;
+}
 
 /**
  * Loads an image texture, falling back to the locally cached blob when the
@@ -189,12 +220,12 @@ export async function ensureImageTexture(entry: DisplayEntry, obj: CanvasObject)
   if (imageAttempts.has(key)) return;
   imageAttempts.add(key);
 
-  const attach = (texture: Parameters<typeof Sprite.from>[0]) => {
+  const attach = (texture: Texture) => {
     if (entry.root.destroyed) return;
     for (const child of [...entry.root.children]) {
       if (child.label === "img") child.destroy();
     }
-    const sprite = Sprite.from(texture);
+    const sprite = new Sprite(texture);
     sprite.label = "img";
     sprite.width = obj.width;
     sprite.height = obj.height;
@@ -202,43 +233,93 @@ export async function ensureImageTexture(entry: DisplayEntry, obj: CanvasObject)
   };
 
   try {
-    attach(await Assets.load(src));
+    attach(await loadTexture(src));
     return;
   } catch {
-    // Remote fetch failed; try the local cache below.
+    // Remote fetch failed; try the locally cached copy below.
   }
 
   try {
     const fallback = await localMediaUrl(obj.id);
-    if (fallback) attach(await Assets.load(fallback));
+    if (fallback) {
+      attach(await loadTexture(fallback));
+      return;
+    }
   } catch {
-    // Keep the placeholder rectangle.
+    // Fall through to the retry release below.
+  }
+
+  // Both paths failed: forget the attempt so a later redraw can retry once the
+  // media server or the network comes back.
+  imageAttempts.delete(key);
+}
+
+/** Resizes an already-attached image sprite when its object is resized. */
+export function resizeImageSprite(entry: DisplayEntry, obj: CanvasObject) {
+  for (const child of entry.root.children) {
+    if (child.label !== "img") continue;
+    const sprite = child as Sprite;
+    sprite.width = obj.width;
+    sprite.height = obj.height;
   }
 }
 
+/** "Ada Lovelace" -> "Ada". Keeps the cursor tag short enough to follow. */
+function firstName(username: string): string {
+  const first = username.trim().split(/\s+/)[0] ?? username;
+  return first.length > 14 ? `${first.slice(0, 13)}…` : first;
+}
+
+/**
+ * Draws an arrow plus a name tag for every collaborator with a live cursor, so a
+ * moving pointer is always attributable to a person.
+ */
 export function syncRemoteCursors(
   layer: Container,
   presences: { cursor: PathPoint | null; color: string; username: string }[]
 ) {
   layer.removeChildren().forEach((c) => c.destroy());
+
   for (const p of presences) {
     if (!p.cursor) continue;
-    const g = new Graphics();
-    g.circle(0, 0, 6);
-    g.fill(parseColor(p.color));
-    g.position.set(p.cursor.x, p.cursor.y);
+    const color = parseColor(p.color);
+    const wrap = new Container();
+    wrap.position.set(p.cursor.x, p.cursor.y);
+
+    const pointer = new Graphics();
+    pointer.moveTo(0, 0);
+    pointer.lineTo(0, 16);
+    pointer.lineTo(4.4, 12.2);
+    pointer.lineTo(7.2, 18);
+    pointer.lineTo(10, 16.6);
+    pointer.lineTo(7.2, 11);
+    pointer.lineTo(12.4, 10.6);
+    pointer.closePath();
+    pointer.fill(color);
+    pointer.stroke({ width: 1.2, color: 0xffffff });
+    wrap.addChild(pointer);
+
     const label = new Text({
-      text: p.username,
+      text: firstName(p.username),
       style: new TextStyle({
-        fill: parseColor(p.color),
+        fill: 0xffffff,
         fontSize: 12,
+        fontWeight: "600",
         fontFamily: "Segoe UI, system-ui, sans-serif",
       }),
     });
-    label.position.set(10, -6);
-    const wrap = new Container();
-    wrap.addChild(g);
+    // The tag sits below-right of the hotspot so it never covers what the
+    // collaborator is pointing at.
+    const padX = 6;
+    const padY = 3;
+    const tag = new Graphics();
+    tag.roundRect(0, 0, label.width + padX * 2, label.height + padY * 2, 6);
+    tag.fill(color);
+    tag.position.set(12, 18);
+    label.position.set(12 + padX, 18 + padY);
+    wrap.addChild(tag);
     wrap.addChild(label);
+
     layer.addChild(wrap);
   }
 }

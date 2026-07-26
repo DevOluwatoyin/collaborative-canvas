@@ -19,6 +19,8 @@ export type PhysicsBridge = {
   step: (dtMs: number) => void;
   readState: () => Map<string, BodyState>;
   setAttractMode: (mode: "none" | "attract" | "repel") => void;
+  /** Downward gravity scale; 0 leaves bodies floating in free space. */
+  setGravity: (scale: number) => void;
   destroy: () => void;
   getBody: (id: string) => Matter.Body | undefined;
 };
@@ -139,6 +141,9 @@ export function createPhysicsBridge(): PhysicsBridge {
     applyImpulse,
     step,
     readState,
+    setGravity: (scale) => {
+      engine.gravity.y = scale;
+    },
     setAttractMode: (mode) => {
       attractMode = mode;
     },

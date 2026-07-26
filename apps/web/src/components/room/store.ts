@@ -49,7 +49,9 @@ export type RoomState = {
   shapeKind: ShapeKind;
   selectedIds: string[];
   editingTextId: string | null;
+  /** Replicated via the document so the elected host applies them. */
   attractMode: AttractMode;
+  gravity: boolean;
 
   /**
    * Style the panel edits. With a selection it mirrors the first selected
@@ -64,6 +66,13 @@ export type RoomState = {
 
   canUndo: boolean;
   canRedo: boolean;
+
+  /**
+   * Where a pending audio clip will be placed. Non-null while the recorder panel
+   * is open, so recording is an explicit, visible mode rather than a silent
+   * fixed-length capture.
+   */
+  audioCapture: { id: string; x: number; y: number } | null;
 
   /** When non-null the canvas renders this snapshot instead of live state. */
   replayObjects: CanvasObject[] | null;
@@ -116,12 +125,14 @@ export function createRoomStore(roomId: string, identity: GuestIdentity) {
     selectedIds: [],
     editingTextId: null,
     attractMode: "none",
+    gravity: false,
     styleColor: "#4465e9",
     styleSize: "m",
     styleOpacity: 1,
     zoom: 1,
     canUndo: false,
     canRedo: false,
+    audioCapture: null,
     replayObjects: null,
   }));
 }

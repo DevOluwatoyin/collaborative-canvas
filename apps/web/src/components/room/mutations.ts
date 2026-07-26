@@ -25,7 +25,7 @@ import {
 import { blobToDataUrl, putMediaBlob } from "@/lib/media/store";
 import { uploadMedia } from "@/lib/media/remote";
 import type { PhysicsBridge } from "@/lib/physics/engine";
-import { pickFile, recordAudioBrief } from "./media";
+import { pickFile } from "./media";
 
 type Actor = Pick<GuestIdentity, "id" | "username">;
 
@@ -273,11 +273,9 @@ export async function createObjectAt(
     width = 240;
     height = 180;
   } else if (type === "audio") {
-    const recorded = await recordAudioBrief();
-    if (!recorded) return null;
-    props = await mediaProps(id, recorded, { label: "Recording" });
-    width = 200;
-    height = 72;
+    // Audio is captured by the recorder panel, which calls createAudioObject
+    // when the user stops. Placing one here would mean recording with no UI.
+    return null;
   }
 
   const obj = createCanvasObject({
@@ -299,6 +297,37 @@ export async function createObjectAt(
     openEditor: type === "text" || type === "sticky",
     switchToSelect: opts.tool !== "physics",
   };
+}
+
+/** Creates the audio object once the recorder panel has captured a clip. */
+export async function createAudioObject(
+  bindings: RoomBindings,
+  actor: Actor,
+  world: PathPoint,
+  blob: Blob,
+  durationMs: number
+): Promise<string> {
+  const id = nanoid(10);
+  const seconds = Math.max(1, Math.round(durationMs / 1000));
+  const props = await mediaProps(id, blob, {
+    label: `${seconds}s clip`,
+    durationMs,
+  });
+  const width = 200;
+  const height = 72;
+  const obj = createCanvasObject({
+    id,
+    type: "audio",
+    x: world.x - width / 2,
+    y: world.y - height / 2,
+    width,
+    height,
+    zIndex: nextZIndex(),
+    createdBy: actor.id,
+    props,
+  });
+  createRoomObject(bindings, actor, obj);
+  return id;
 }
 
 export function flingRoomObject(
@@ -334,6 +363,40 @@ export function flingRoomObject(
 const DUPLICATE_OFFSET = 24;
 
 /** Copies objects with fresh ids, nudged so the copy is visibly on top. */
+/**
+ * Inserts objects that came from the clipboard. Ids are always regenerated so a
+ * paste into the room the objects were copied from creates copies rather than
+ * silently overwriting the originals.
+ */
+export function pasteRoomObjects(
+  bindings: RoomBindings,
+  actor: Actor,
+  objects: readonly CanvasObject[]
+): string[] {
+  const created: string[] = [];
+  bindings.doc.transact(() => {
+    for (const source of objects) {
+      if (!source || typeof source !== "object") continue;
+      const copy = createCanvasObject({
+        ...source,
+        id: nanoid(10),
+        x: (source.x ?? 0) + DUPLICATE_OFFSET,
+        y: (source.y ?? 0) + DUPLICATE_OFFSET,
+        zIndex: nextZIndex(),
+        createdBy: actor.id,
+        props: { ...(source.props ?? {}) },
+      });
+      upsertYObject(bindings.objects, copy);
+      appendHistory(
+        bindings.history,
+        historyOpFromCreate(copy, actor.id, actor.username)
+      );
+      created.push(copy.id);
+    }
+  });
+  return created;
+}
+
 export function duplicateRoomObjects(
   bindings: RoomBindings,
   actor: Actor,

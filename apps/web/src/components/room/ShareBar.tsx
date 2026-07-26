@@ -48,7 +48,7 @@ export function ShareBar() {
 
   return (
     <div className="pointer-events-none flex flex-col items-end gap-2">
-      <div className="ui-card pointer-events-auto flex items-center gap-2 p-1 pl-2">
+      <div data-tour="share" className="ui-card pointer-events-auto flex items-center gap-2 p-1 pl-2">
         <div className="flex -space-x-1.5">
           <span
             title={`${identity.username} (you) — ${live ? "connected" : "offline"}`}
@@ -63,7 +63,7 @@ export function ShareBar() {
           </span>
           {remotes.slice(0, 3).map((r) => (
             <span
-              key={r.userId}
+              key={r.clientId ?? r.userId}
               title={r.username}
               className="flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold text-white ring-2 ring-[var(--ui-bg)]"
               style={{ background: r.color }}

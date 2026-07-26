@@ -276,6 +276,21 @@ export const LineIcon = (p: IconProps) => (
   </Svg>
 );
 
+export const ExitIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M14 4h4a2 2 0 012 2v12a2 2 0 01-2 2h-4" />
+    <path d="M10 8l-4 4 4 4" />
+    <path d="M6 12h9" />
+  </Svg>
+);
+
+export const SignOutIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 3a9 9 0 106.4 15.3" />
+    <path d="M12 3v9" />
+  </Svg>
+);
+
 export const CheckIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M5 12.5l4.5 4.5L19 7" />

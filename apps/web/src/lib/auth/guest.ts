@@ -82,3 +82,18 @@ export function setGuestIdentity(username: string): GuestIdentity {
 export function ensureGuestIdentity(fallbackName = "Guest"): GuestIdentity {
   return getGuestIdentity() ?? setGuestIdentity(fallbackName);
 }
+
+/**
+ * Forgets the guest identity so the next room entry asks for a name again.
+ * Canvas content is unaffected: rooms are shared documents, not user data.
+ */
+export function clearGuestIdentity(): void {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Storage denied; clearing the in-memory cache below is still enough.
+  }
+  cached = null;
+  cacheLoaded = true;
+  for (const listener of listeners) listener();
+}

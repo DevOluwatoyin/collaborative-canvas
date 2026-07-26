@@ -11,7 +11,7 @@ export function ZoomControl() {
   const actions = useRoomActions();
 
   return (
-    <div className="ui-card pointer-events-auto flex items-center p-1">
+    <div data-tour="zoom" className="ui-card pointer-events-auto flex items-center p-1">
       <button
         type="button"
         className="ui-icon-btn"

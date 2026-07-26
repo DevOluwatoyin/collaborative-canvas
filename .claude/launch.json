@@ -6,12 +6,6 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "web", "dev"],
       "port": 3000
-    },
-    {
-      "name": "collab",
-      "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "collab-server", "dev"],
-      "port": 1234
     }
   ]
 }

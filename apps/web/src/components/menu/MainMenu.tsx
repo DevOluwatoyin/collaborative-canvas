@@ -1,17 +1,21 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useRoomActions, useRoomHandles, useRoomState } from "@/components/room/RoomStoreProvider";
+import { clearGuestIdentity } from "@/lib/auth/guest";
 import { allObjects, selectedObjects } from "@/components/room/store";
 import { useTheme } from "@/lib/theme/ThemeProvider";
 import { exportJSON, exportPNG, exportSVG } from "@/lib/export";
 import { Popover } from "@/components/ui/Popover";
 import {
   DownloadIcon,
+  ExitIcon,
   HelpIcon,
   HistoryIcon,
   MenuIcon,
   MoonIcon,
   RadarIcon,
+  SignOutIcon,
   SpawnIcon,
   SunIcon,
 } from "@/components/ui/icons";
@@ -34,7 +38,9 @@ export function MainMenu({
   radarVisible: boolean;
   onToggleRadar: () => void;
 }) {
+  const router = useRouter();
   const roomId = useRoomState((s) => s.roomId);
+  const identity = useRoomState((s) => s.identity);
   const selectedCount = useRoomState((s) => s.selectedIds.length);
   const actions = useRoomActions();
   const { store, refs } = useRoomHandles();
@@ -49,7 +55,7 @@ export function MainMenu({
   const scope = selectedCount > 0 ? `selection (${selectedCount})` : "whole canvas";
 
   return (
-    <div className="ui-card pointer-events-auto flex items-center gap-1 p-1 pl-2.5">
+    <div data-tour="menu" className="ui-card pointer-events-auto flex items-center gap-1 p-1 pl-2.5">
       <span className="font-[family-name:var(--font-display)] text-[15px] font-semibold tracking-tight">
         Orbitboard
       </span>
@@ -155,6 +161,35 @@ export function MainMenu({
             >
               <HelpIcon />
               Take the tour
+            </button>
+
+            <div className="ui-divider" />
+
+            <p className="ui-label px-2 pb-1">Signed in as {identity.username}</p>
+            <button
+              type="button"
+              className="ui-menu-item"
+              onClick={() => {
+                close();
+                router.push("/");
+              }}
+            >
+              <ExitIcon />
+              Leave room
+            </button>
+            <button
+              type="button"
+              className="ui-menu-item"
+              onClick={() => {
+                // Clearing first means the home page renders the name form
+                // rather than the returning-guest shortcut.
+                clearGuestIdentity();
+                close();
+                router.push("/");
+              }}
+            >
+              <SignOutIcon />
+              Sign out
             </button>
           </div>
         )}

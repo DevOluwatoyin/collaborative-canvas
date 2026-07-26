@@ -79,6 +79,11 @@ export type GuestIdentity = {
 
 export type PresenceState = {
   userId: string;
+  /**
+   * Awareness client id, unique per open tab. Two tabs in one browser share a
+   * guest identity, so `userId` is not a safe key for presence.
+   */
+  clientId?: number;
   username: string;
   color: string;
   cursor: { x: number; y: number } | null;

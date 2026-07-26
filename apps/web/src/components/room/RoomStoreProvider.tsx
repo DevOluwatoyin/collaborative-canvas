@@ -15,11 +15,17 @@ import { ensureGuestIdentity } from "@/lib/auth/guest";
 import {
   createRoomBindings,
   destroyRoomBindings,
+  getForceMode,
+  getGravity,
   getHistoryBase,
   getHistoryBaseCount,
   getRemotePresence,
 } from "@/lib/yjs/provider";
-import { changedObjectIds, readObject } from "@/lib/yjs/objects";
+import {
+  changedObjectIds,
+  migrateLegacyObjects,
+  readObject,
+} from "@/lib/yjs/objects";
 import { createPhysicsBridge } from "@/lib/physics/engine";
 import { releaseLocalMediaUrls } from "@/lib/media/remote";
 import { createRoomActions, type RoomActions } from "./actions";
@@ -174,6 +180,9 @@ function useRoomWiring({ store, refs }: RoomContextValue) {
 
     /** Materialise every object once, on load or after an IndexedDB restore. */
     const primeObjects = () => {
+      // Rooms created before the per-field schema still hold plain JSON values.
+      // Convert them before materialising so nothing downstream sees two shapes.
+      migrateLegacyObjects(bindings.objects);
       const stale = new Set(refs.objects.keys());
       resetObjects(refs);
       bindings.objects.forEach((y) => {
@@ -204,6 +213,8 @@ function useRoomWiring({ store, refs }: RoomContextValue) {
       store.setState({
         historyBase: getHistoryBase(bindings.meta),
         historyBaseCount: getHistoryBaseCount(bindings.meta),
+        attractMode: getForceMode(bindings.meta),
+        gravity: getGravity(bindings.meta),
       });
     };
 

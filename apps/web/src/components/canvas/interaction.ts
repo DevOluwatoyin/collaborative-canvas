@@ -1,4 +1,5 @@
 import type { FederatedPointerEvent } from "pixi.js";
+import { isTextEntry } from "@/lib/dom/editing";
 import { MAX_ZOOM, MIN_ZOOM } from "./constants";
 import { handlePointerDown, handlePointerMove } from "./pointerHandlers";
 import { handlePointerEnd } from "./pointerEnd";
@@ -92,7 +93,10 @@ export class InteractionController {
   };
 
   private onKeyDown = (e: KeyboardEvent) => {
-    if (e.code === "Space" && !(e.target instanceof HTMLInputElement)) {
+    // Space engages temporary pan. It must not do so while typing: the old
+    // check excluded <input> but not <textarea>, so pressing space in the text
+    // editor grabbed pan mode and preventDefault ate the space character.
+    if (e.code === "Space" && !isTextEntry(e)) {
       this.session.spaceDown = true;
       e.preventDefault();
     }

@@ -161,6 +161,31 @@ export function appendHistory(history: Y.Array<HistoryOp>, op: HistoryOp) {
   history.push([op]);
 }
 
+/**
+ * Force mode and gravity live in the document, not in local UI state: only the
+ * elected host runs the simulation, so a setting held locally by a non-host peer
+ * would silently do nothing.
+ */
+export function getForceMode(meta: Y.Map<unknown>): "none" | "attract" | "repel" {
+  const mode = meta.get("forceMode");
+  return mode === "attract" || mode === "repel" ? mode : "none";
+}
+
+export function setForceMode(
+  meta: Y.Map<unknown>,
+  mode: "none" | "attract" | "repel"
+): void {
+  meta.set("forceMode", mode);
+}
+
+export function getGravity(meta: Y.Map<unknown>): boolean {
+  return meta.get("gravity") === true;
+}
+
+export function setGravity(meta: Y.Map<unknown>, on: boolean): void {
+  meta.set("gravity", on);
+}
+
 export function getHistoryBase(meta: Y.Map<unknown>): CanvasObject[] {
   const base = meta.get(META_HISTORY_BASE);
   return Array.isArray(base) ? (base as CanvasObject[]) : [];
@@ -207,7 +232,7 @@ export function getRemotePresence(
   awareness.getStates().forEach((state, clientId) => {
     if (clientId === localId) return;
     const user = state?.user as PresenceState | undefined;
-    if (user) result.push(user);
+    if (user) result.push({ ...user, clientId });
   });
   return result;
 }

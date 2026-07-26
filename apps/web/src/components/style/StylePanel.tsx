@@ -11,6 +11,14 @@ import { PALETTE, SIZES, colorPropFor, sizeFromFontSize } from "./styles";
 
 const SIZE_LABEL: Record<string, string> = { s: "S", m: "M", l: "L", xl: "XL" };
 
+const FORCE_MODES = ["none", "attract", "repel"] as const;
+
+const FORCE_HINTS: Record<(typeof FORCE_MODES)[number], string> = {
+  none: "No forces between physics bodies",
+  attract: "Physics bodies pull towards each other",
+  repel: "Physics bodies push each other apart",
+};
+
 const SHAPE_ICONS = [
   { kind: "rect" as const, label: "Rectangle", icon: <SquareIcon /> },
   { kind: "ellipse" as const, label: "Ellipse", icon: <CircleIcon /> },
@@ -35,7 +43,10 @@ export function StylePanel() {
   const styleColor = useRoomState((s) => s.styleColor);
   const styleSize = useRoomState((s) => s.styleSize);
   const styleOpacity = useRoomState((s) => s.styleOpacity);
+  const attractMode = useRoomState((s) => s.attractMode);
+  const gravity = useRoomState((s) => s.gravity);
   const selected = useObject(selectedIds[0] ?? null);
+  const physicsOnSelection = selected?.physics?.enabled === true;
 
   // With a selection the panel reflects that object, so the swatches show what
   // you are about to change rather than a stale default.
@@ -54,7 +65,7 @@ export function StylePanel() {
   const showShapeKind = tool === "shape" || selected?.type === "shape";
 
   return (
-    <div className="ui-card pointer-events-auto w-[196px] p-3">
+    <div data-tour="style" className="ui-card pointer-events-auto w-[196px] p-3">
       <div className="grid grid-cols-4 justify-items-center gap-2">
         {PALETTE.map((swatch) => (
           <button
@@ -146,15 +157,63 @@ export function StylePanel() {
 
       <div className="ui-divider" />
 
-      <button
-        type="button"
-        className="ui-menu-item mt-1 justify-between"
-        disabled={selectedIds.length === 0}
-        onClick={actions.enablePhysicsOnSelected}
-      >
-        <span>Enable physics</span>
-        <span className="ui-label">{selectedIds.length || ""}</span>
-      </button>
+      <div className="px-1 pb-1">
+        <div className="ui-label mb-1.5">Physics</div>
+        <button
+          type="button"
+          className="ui-menu-item justify-between"
+          disabled={selectedIds.length === 0}
+          onClick={actions.togglePhysicsOnSelected}
+          title="Give the selection a physics body so it can be flung and collide"
+        >
+          <span>{physicsOnSelection ? "Disable on selection" : "Enable on selection"}</span>
+          <span className="ui-label">{selectedIds.length || ""}</span>
+        </button>
+
+        {/* Force settings are room-wide, and replicated: only the elected host
+            simulates, so these must not be local-only toggles. */}
+        <div className="mt-1.5 flex gap-1">
+          {FORCE_MODES.map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              className="flex-1 rounded-lg px-2 py-1 text-[12px] capitalize"
+              style={
+                attractMode === mode
+                  ? { background: "var(--ui-selected)", color: "var(--ui-selected-fg)" }
+                  : { background: "var(--ui-hover)" }
+              }
+              onClick={() => actions.setAttractMode(mode)}
+              title={FORCE_HINTS[mode]}
+            >
+              {mode}
+            </button>
+          ))}
+        </div>
+
+        <button
+          type="button"
+          className="ui-menu-item mt-1 justify-between"
+          onClick={() => actions.setGravityEnabled(!gravity)}
+          title="Pull every physics body downwards"
+        >
+          <span>Gravity</span>
+          <span
+            className="rounded-full px-2 py-0.5 text-[11px] font-semibold"
+            style={
+              gravity
+                ? { background: "var(--ui-selected)", color: "var(--ui-selected-fg)" }
+                : { background: "var(--ui-hover)" }
+            }
+          >
+            {gravity ? "on" : "off"}
+          </span>
+        </button>
+
+        <p className="ui-label mt-1.5 leading-snug">
+          With the Physics tool, drag an object and let go to fling it.
+        </p>
+      </div>
     </div>
   );
 }

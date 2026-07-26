@@ -76,6 +76,7 @@ export class CanvasEngine {
   private visible = new Set<string>();
   private viewportDirty = true;
   private selectionDirty = true;
+  private cursorZoom = 1;
   private themeMode: CanvasThemeMode = "light";
 
   /** Stable lookup handed to geometry/overlay helpers. */
@@ -314,6 +315,7 @@ export class CanvasEngine {
     if (this.viewportDirty) {
       drawWorldGrid(this.grid, bounds, zoom, GRID_STEP, CANVAS_THEME[this.themeMode].grid);
     }
+    if (zoom !== this.cursorZoom) this.rescaleCursors(zoom);
 
     const margin = CULL_MARGIN / Math.max(zoom, 0.05);
     const nextVisible = this.index.query({
@@ -394,9 +396,20 @@ export class CanvasEngine {
     }
   }
 
+  /**
+   * Cursors are positioned in world space but must stay a constant on-screen
+   * size, so each one is counter-scaled by the current zoom.
+   */
+  private rescaleCursors(zoom: number) {
+    const inverse = 1 / zoom;
+    for (const child of this.cursorsLayer.children) child.scale.set(inverse);
+    this.cursorZoom = zoom;
+  }
+
   syncCursors(presences: PresenceState[]) {
     if (!this.ready || this.overlay) return;
     syncRemoteCursors(this.cursorsLayer, presences);
+    this.rescaleCursors(this.viewport.zoom);
   }
 
   destroy() {

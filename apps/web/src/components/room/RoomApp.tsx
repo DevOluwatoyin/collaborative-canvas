@@ -5,8 +5,10 @@ import type { Tool } from "@infinite-canvas/shared";
 import {
   RoomStoreProvider,
   useRoomActions,
+  useRoomHandles,
   useRoomState,
 } from "@/components/room/RoomStoreProvider";
+import { isTextEntry } from "@/lib/dom/editing";
 import { CanvasStage } from "@/components/canvas/CanvasStage";
 import { ToolStrip } from "@/components/toolbar/ToolStrip";
 import { ActionsBar } from "@/components/toolbar/ActionsBar";
@@ -14,6 +16,7 @@ import { ZoomControl } from "@/components/toolbar/ZoomControl";
 import { StylePanel } from "@/components/style/StylePanel";
 import { MainMenu } from "@/components/menu/MainMenu";
 import { ShareBar } from "@/components/room/ShareBar";
+import { AudioRecorder } from "@/components/room/AudioRecorder";
 import { Minimap } from "@/components/minimap/Minimap";
 import { ReplayPanel } from "@/components/replay/ReplayPanel";
 import {
@@ -39,6 +42,7 @@ function RoomInner() {
   const [tourOpen, setTourOpen] = useState(false);
   const [radarVisible, setRadarVisible] = useState(true);
   const actions = useRoomActions();
+  const { store } = useRoomHandles();
   const selectedCount = useRoomState((s) => s.selectedIds.length);
   const objectCount = useRoomState((s) => s.objectCount);
 
@@ -52,12 +56,11 @@ function RoomInner() {
   // once instead of being re-bound on every selection change.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (
-        e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement
-      ) {
-        return;
-      }
+      // Two independent guards, because either one alone has a hole: the target
+      // is <body> for a moment after a canvas click even though the text editor
+      // is open, and focus can legitimately sit on a toolbar button while no
+      // editor exists. Consulting the open editor is the authoritative check.
+      if (isTextEntry(e) || store.getState().editingTextId !== null) return;
 
       const mod = e.metaKey || e.ctrlKey;
       const key = e.key.toLowerCase();
@@ -83,6 +86,16 @@ function RoomInner() {
         actions.duplicateSelected();
         return;
       }
+      if (mod && (key === "c" || key === "x")) {
+        e.preventDefault();
+        void actions.copySelection(key === "x");
+        return;
+      }
+      if (mod && key === "v") {
+        e.preventDefault();
+        void actions.pasteClipboard();
+        return;
+      }
 
       if (e.key === "Delete" || e.key === "Backspace") {
         e.preventDefault();
@@ -95,7 +108,7 @@ function RoomInner() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [actions]);
+  }, [actions, store]);
 
   const allSelected = selectedCount > 1 && selectedCount === objectCount;
 
@@ -153,6 +166,8 @@ function RoomInner() {
 
         {radarVisible && !replayOpen && <Minimap />}
       </div>
+
+      <AudioRecorder />
 
       {replayOpen && <ReplayPanel onClose={() => setReplayOpen(false)} />}
       {tourOpen && <OnboardingWizard onClose={() => setTourOpen(false)} />}

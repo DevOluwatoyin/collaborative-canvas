@@ -1,5 +1,6 @@
 "use client";
 
+import { nanoid } from "nanoid";
 import {
   createDefaultPhysics,
   type CanvasObject,
@@ -15,19 +16,29 @@ import {
   strokeWidthFor,
   type SizeName,
 } from "@/components/style/styles";
+import {
+  setForceMode,
+  setGravity as setGravityMeta,
+} from "@/lib/yjs/provider";
+import { selectedObjects } from "./store";
 import type { AttractMode, RoomRefs, RoomStore } from "./store";
 import type { ObjectStyle } from "./mutations";
 import {
+  createAudioObject,
   createObjectAt,
   createPathFromStroke,
   deleteRoomObject,
   duplicateRoomObjects,
   flingRoomObject,
+  pasteRoomObjects,
   recordUndoDiff,
   reorderRoomObjects,
   spawnBulkObjects,
   updateRoomObject,
 } from "./mutations";
+
+/** Marks clipboard text as ours, so pasting foreign text is ignored. */
+const CLIPBOARD_KIND = "orbitboard/objects";
 
 /** Awareness is throttled to ~16Hz; cursors do not need a frame-accurate feed. */
 const PRESENCE_INTERVAL_MS = 60;
@@ -40,6 +51,9 @@ export type RoomActions = ReturnType<typeof createRoomActions>;
  * render and pushed a re-render through every consumer.
  */
 export function createRoomActions(store: RoomStore, refs: RoomRefs) {
+  /** Fallback for browsers that block clipboard access from canvas events. */
+  let internalClipboard: CanvasObject[] = [];
+
   const actor = () => {
     const { identity } = store.getState();
     return { id: identity.id, username: identity.username };
@@ -79,9 +93,37 @@ export function createRoomActions(store: RoomStore, refs: RoomRefs) {
     store.setState({ replayObjects });
   }
 
+  /**
+   * Written to the document rather than to local state: only the elected host
+   * simulates, so a force mode held by a non-host peer would do nothing.
+   */
   function setAttractMode(attractMode: AttractMode) {
-    store.setState({ attractMode });
-    refs.physics?.setAttractMode(attractMode);
+    if (!refs.bindings) return;
+    setForceMode(refs.bindings.meta, attractMode);
+  }
+
+  function setGravityEnabled(on: boolean) {
+    if (!refs.bindings) return;
+    setGravityMeta(refs.bindings.meta, on);
+  }
+
+  /** Turns physics on for the selection, or off if all of it is already on. */
+  function togglePhysicsOnSelected() {
+    const bindings = refs.bindings;
+    if (!bindings) return;
+    const ids = store.getState().selectedIds;
+    if (ids.length === 0) return;
+    const allEnabled = ids.every((id) => refs.objects.get(id)?.physics?.enabled);
+    const who = actor();
+    bindings.doc.transact(() => {
+      for (const id of ids) {
+        updateRoomObject(bindings, who, id, {
+          physics: createDefaultPhysics(!allEnabled),
+          vx: 0,
+          vy: 0,
+        });
+      }
+    });
   }
 
   function updateObject(
@@ -144,6 +186,16 @@ export function createRoomActions(store: RoomStore, refs: RoomRefs) {
   ) {
     if (!refs.bindings) return;
     const { tool, shapeKind } = store.getState();
+
+    // Audio needs an interactive capture step, so placing it opens the recorder
+    // rather than creating an object immediately.
+    if ((opts?.forceType ?? (tool === "audio" ? "audio" : null)) === "audio") {
+      store.setState({
+        audioCapture: { id: nanoid(8), x: world.x, y: world.y },
+      });
+      return;
+    }
+
     const result = await createObjectAt(refs.bindings, actor(), world, {
       tool,
       shapeKind,
@@ -157,20 +209,70 @@ export function createRoomActions(store: RoomStore, refs: RoomRefs) {
     if (result.switchToSelect) store.setState({ tool: "select" });
   }
 
+  /**
+   * Objects are copied as JSON text so a copy can cross tabs and windows. The
+   * in-memory buffer is the fallback for browsers that refuse clipboard writes
+   * without a user-activation the canvas cannot always provide.
+   */
+  async function copySelection(cut = false): Promise<number> {
+    const objects = selectedObjects(refs, store.getState().selectedIds);
+    if (objects.length === 0) return 0;
+    const payload = JSON.stringify({ type: CLIPBOARD_KIND, objects });
+    internalClipboard = objects;
+    try {
+      await navigator.clipboard?.writeText(payload);
+    } catch {
+      // System clipboard unavailable; the internal buffer still serves paste.
+    }
+    if (cut) removeSelected();
+    return objects.length;
+  }
+
+  async function readClipboardObjects(): Promise<CanvasObject[]> {
+    try {
+      const text = await navigator.clipboard?.readText();
+      if (text) {
+        const parsed: unknown = JSON.parse(text);
+        if (
+          typeof parsed === "object" &&
+          parsed !== null &&
+          (parsed as { type?: string }).type === CLIPBOARD_KIND &&
+          Array.isArray((parsed as { objects?: unknown }).objects)
+        ) {
+          return (parsed as { objects: CanvasObject[] }).objects;
+        }
+      }
+    } catch {
+      // Clipboard read denied or holds something else; fall back below.
+    }
+    return internalClipboard;
+  }
+
+  async function pasteClipboard() {
+    const bindings = refs.bindings;
+    if (!bindings) return;
+    const objects = await readClipboardObjects();
+    if (objects.length === 0) return;
+    const ids = pasteRoomObjects(bindings, actor(), objects);
+    if (ids.length > 0) store.setState({ selectedIds: ids, tool: "select" });
+  }
+
+  function cancelAudioCapture() {
+    store.setState({ audioCapture: null });
+  }
+
+  async function commitAudioCapture(blob: Blob, durationMs: number) {
+    const bindings = refs.bindings;
+    const target = store.getState().audioCapture;
+    store.setState({ audioCapture: null });
+    if (!bindings || !target) return;
+    const id = await createAudioObject(bindings, actor(), target, blob, durationMs);
+    store.setState({ selectedIds: [id], tool: "select" });
+  }
+
   function flingObject(id: string, vx: number, vy: number) {
     if (!refs.bindings) return;
     flingRoomObject(refs.bindings, refs.physics, actor(), id, vx, vy);
-  }
-
-  function enablePhysicsOnSelected() {
-    if (!refs.bindings) return;
-    const { selectedIds } = store.getState();
-    const bindings = refs.bindings;
-    bindings.doc.transact(() => {
-      for (const id of selectedIds) {
-        updateObject(id, { physics: createDefaultPhysics(true) });
-      }
-    });
   }
 
   function spawnBulk(count: number) {
@@ -315,14 +417,19 @@ export function createRoomActions(store: RoomStore, refs: RoomRefs) {
     setEditingTextId,
     setReplayObjects,
     setAttractMode,
+    setGravityEnabled,
+    togglePhysicsOnSelected,
     updateObject,
     removeObject,
     removeSelected,
     selectAll,
     createStroke,
     createAt,
+    copySelection,
+    pasteClipboard,
+    cancelAudioCapture,
+    commitAudioCapture,
     flingObject,
-    enablePhysicsOnSelected,
     spawnBulk,
     updatePresence,
     duplicateSelected,

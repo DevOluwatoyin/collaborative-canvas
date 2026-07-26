@@ -26,7 +26,11 @@ type ToolButton = {
   icon: ReactNode;
 };
 
-/** Tools that earn a permanent slot; the rest live in the shapes popover. */
+/**
+ * Every tool gets a permanent slot. Physics and audio started out behind the
+ * caret, which made two of the app's headline features effectively invisible;
+ * the popover now carries only shape kinds.
+ */
 const PRIMARY: ToolButton[] = [
   { tool: "select", label: "Select", hint: "V", icon: <CursorIcon /> },
   { tool: "pan", label: "Hand", hint: "H", icon: <HandIcon /> },
@@ -34,9 +38,6 @@ const PRIMARY: ToolButton[] = [
   { tool: "shape", label: "Shape", hint: "S", icon: <SquareIcon /> },
   { tool: "text", label: "Text", hint: "T", icon: <TextIcon /> },
   { tool: "sticky", label: "Note", hint: "N", icon: <NoteIcon /> },
-];
-
-const SECONDARY: ToolButton[] = [
   { tool: "image", label: "Image", hint: "I", icon: <ImageIcon /> },
   { tool: "audio", label: "Audio note", hint: "A", icon: <MicIcon /> },
   { tool: "physics", label: "Physics", hint: "P", icon: <PhysicsIcon /> },
@@ -61,6 +62,7 @@ function ToolItem({
     <button
       type="button"
       className="ui-icon-btn"
+      data-tour={`tool-${item.tool}`}
       title={`${item.label} — ${item.hint}`}
       aria-label={item.label}
       aria-pressed={active}
@@ -85,7 +87,7 @@ export function ToolStrip() {
     SHAPE_KINDS.find((s) => s.kind === shapeKind)?.icon ?? <SquareIcon />;
 
   return (
-    <div className="ui-card pointer-events-auto flex items-center gap-0.5 p-1">
+    <div data-tour="tools" className="ui-card pointer-events-auto flex items-center gap-0.5 p-1">
       {PRIMARY.map((item) => (
         <ToolItem
           key={item.tool}
@@ -96,11 +98,10 @@ export function ToolStrip() {
       ))}
 
       <Popover
-        label="More tools and shapes"
+        label="Shape kinds"
         icon={<ChevronUpIcon />}
         placement="top-end"
         panelClassName="w-[172px]"
-        selected={SECONDARY.some((s) => s.tool === tool)}
       >
         {(close) => (
           <div>
@@ -121,26 +122,6 @@ export function ToolStrip() {
                   }}
                 >
                   {s.icon}
-                </button>
-              ))}
-            </div>
-            <div className="ui-divider" />
-            <p className="ui-label px-2 pb-1">Tools</p>
-            <div className="grid grid-cols-4 gap-0.5">
-              {SECONDARY.map((item) => (
-                <button
-                  key={item.tool}
-                  type="button"
-                  className="ui-icon-btn"
-                  title={`${item.label} — ${item.hint}`}
-                  aria-label={item.label}
-                  aria-pressed={tool === item.tool}
-                  onClick={() => {
-                    actions.setTool(item.tool);
-                    close();
-                  }}
-                >
-                  {item.icon}
                 </button>
               ))}
             </div>

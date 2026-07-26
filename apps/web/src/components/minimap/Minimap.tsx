@@ -194,6 +194,7 @@ export function Minimap() {
     <div
       ref={panelRef}
       style={style}
+      data-tour="radar"
       className={`ui-card pointer-events-auto absolute z-20 overflow-hidden p-2 ${
         // Parked above the toolbars rather than beside them: the tool strip is
         // centred, so any fixed right offset collides at some viewport width.
