@@ -43,6 +43,7 @@ export function StylePanel() {
   const styleColor = useRoomState((s) => s.styleColor);
   const styleSize = useRoomState((s) => s.styleSize);
   const styleOpacity = useRoomState((s) => s.styleOpacity);
+  const styleCornerRadius = useRoomState((s) => s.styleCornerRadius);
   const attractMode = useRoomState((s) => s.attractMode);
   const gravity = useRoomState((s) => s.gravity);
   const selected = useObject(selectedIds[0] ?? null);
@@ -63,6 +64,18 @@ export function StylePanel() {
   const activeOpacity = selected ? (selected.opacity ?? 1) : styleOpacity;
 
   const showShapeKind = tool === "shape" || selected?.type === "shape";
+
+  // Only rectangles and stickies have corners to round; hiding the control for
+  // ellipses and triangles keeps it from looking broken.
+  const isRoundable =
+    selected?.type === "sticky" ||
+    (selected?.type === "shape" &&
+      propString(selected.props, "shape", "rect") === "rect");
+  const showCornerRadius =
+    isRoundable || (!selected && tool === "shape" && shapeKind === "rect");
+  const activeRadius = selected
+    ? propNumber(selected.props, "cornerRadius", selected.type === "sticky" ? 4 : 10)
+    : styleCornerRadius;
 
   return (
     <div data-tour="style" className="ui-card pointer-events-auto w-[196px] p-3">
@@ -121,6 +134,27 @@ export function StylePanel() {
           ))}
         </div>
       </div>
+
+      {showCornerRadius && (
+        <>
+          <div className="ui-divider" />
+          <label className="mt-1 block">
+            <span className="ui-label">Corner radius</span>
+            <input
+              className="ui-range mt-1"
+              type="range"
+              min={0}
+              max={60}
+              step={1}
+              value={activeRadius}
+              aria-label="Corner radius"
+              onChange={(e) => actions.setCornerRadius(Number(e.target.value), false)}
+              onPointerUp={(e) => actions.setCornerRadius(Number(e.currentTarget.value), true)}
+              onKeyUp={(e) => actions.setCornerRadius(Number(e.currentTarget.value), true)}
+            />
+          </label>
+        </>
+      )}
 
       {showShapeKind && (
         <>

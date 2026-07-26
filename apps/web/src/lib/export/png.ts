@@ -1,4 +1,5 @@
 import {
+  cornerRadiusOf,
   propNumber,
   propPoints,
   propStrokes,
@@ -81,7 +82,7 @@ async function paintObject(ctx: CanvasRenderingContext2D, o: CanvasObject) {
       ctx.closePath();
       ctx.fill();
     } else {
-      roundRect(ctx, 0, 0, o.width, o.height, 8);
+      roundRect(ctx, 0, 0, o.width, o.height, cornerRadiusOf(o.props, o.width, o.height));
       ctx.fill();
     }
     for (const stroke of propStrokes(o.props, "scribbles")) {
@@ -97,7 +98,7 @@ async function paintObject(ctx: CanvasRenderingContext2D, o: CanvasObject) {
     }
   } else if (o.type === "sticky") {
     ctx.fillStyle = propString(o.props, "color", "#FDE68A");
-    roundRect(ctx, 0, 0, o.width, o.height, 4);
+    roundRect(ctx, 0, 0, o.width, o.height, cornerRadiusOf(o.props, o.width, o.height, 4));
     ctx.fill();
     ctx.fillStyle = "#1f2937";
     ctx.font = "14px Georgia, serif";

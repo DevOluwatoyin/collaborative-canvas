@@ -253,6 +253,18 @@ input {
     0 0 0 4px var(--ui-selected);
 }
 
+/* Keeps an element scrollable while removing the scrollbar furniture. */
+.ui-noscrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.ui-noscrollbar::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
 .ui-label {
   font-size: 12px;
   font-weight: 500;

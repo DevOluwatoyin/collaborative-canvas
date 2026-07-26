@@ -90,7 +90,9 @@ export function TextEditorOverlay({
         }
       }}
       onPointerDown={(e) => e.stopPropagation()}
-      className="absolute z-30 resize-none rounded-md border-2 border-[var(--ui-selected)] p-2 shadow-lg outline-none"
+      // `ui-noscrollbar` hides the scrollbar chrome without disabling scrolling,
+      // so long text is still reachable but the editor stays a clean box.
+      className="ui-noscrollbar absolute z-30 resize-none overflow-auto rounded-md border-2 border-[var(--ui-selected)] p-2 shadow-lg outline-none"
       style={{
         left: obj.x * zoom + engine.viewport.x,
         top: obj.y * zoom + engine.viewport.y,

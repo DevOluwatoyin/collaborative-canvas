@@ -14,6 +14,8 @@ export type InteractionHost = {
   hitTest: (wx: number, wy: number) => CanvasObject | null;
   queryRect: (rect: Rect) => string[];
   isOverlayActive: () => boolean;
+  /** Sets the canvas CSS cursor; the engine de-duplicates repeat writes. */
+  setCursor: (cursor: string) => void;
   screenToWorld: (sx: number, sy: number) => Point;
   applyViewport: () => void;
   redrawGrid: () => void;

@@ -23,8 +23,10 @@ import {
 import { selectedObjects } from "./store";
 import type { AttractMode, RoomRefs, RoomStore } from "./store";
 import type { ObjectStyle } from "./mutations";
+import { pickFile } from "./media";
 import {
   createAudioObject,
+  createImageObject,
   createObjectAt,
   createPathFromStroke,
   deleteRoomObject,
@@ -180,7 +182,7 @@ export function createRoomActions(store: RoomStore, refs: RoomRefs) {
     if (id && !targetShapeId) store.setState({ selectedIds: [id] });
   }
 
-  async function createAt(
+  function createAt(
     world: PathPoint,
     opts?: { forceType?: CanvasObject["type"]; hitId?: string | null }
   ) {
@@ -196,7 +198,7 @@ export function createRoomActions(store: RoomStore, refs: RoomRefs) {
       return;
     }
 
-    const result = await createObjectAt(refs.bindings, actor(), world, {
+    const result = createObjectAt(refs.bindings, actor(), world, {
       tool,
       shapeKind,
       style: currentStyle(),
@@ -207,6 +209,40 @@ export function createRoomActions(store: RoomStore, refs: RoomRefs) {
     store.setState({ selectedIds: [result.id] });
     if (result.openEditor) store.setState({ editingTextId: result.id });
     if (result.switchToSelect) store.setState({ tool: "select" });
+  }
+
+  function centerOfView(): PathPoint {
+    return refs.viewportCenter?.() ?? { x: 0, y: 0 };
+  }
+
+  /**
+   * Opens the file picker straight from the toolbar click and drops the image in
+   * the middle of the view.
+   *
+   * Requiring a second click on the canvas to choose a position meant the icon
+   * looked dead on press, and the picker could only ever be triggered by that
+   * follow-up click. `pickFile` must be reached synchronously from the click
+   * handler — awaiting anything first spends the user activation the browser
+   * requires to open a file dialog.
+   */
+  function insertImage() {
+    const bindings = refs.bindings;
+    if (!bindings) return;
+    const world = centerOfView();
+    const picked = pickFile("image/*");
+    void (async () => {
+      const file = await picked;
+      if (!file) return;
+      const id = await createImageObject(bindings, actor(), world, file);
+      store.setState({ selectedIds: [id], tool: "select" });
+    })();
+  }
+
+  /** Same immediacy for audio: pressing the mic opens the recorder at once. */
+  function startAudioAtCenter() {
+    if (!refs.bindings) return;
+    const world = centerOfView();
+    store.setState({ audioCapture: { id: nanoid(8), x: world.x, y: world.y } });
   }
 
   /**
@@ -333,6 +369,23 @@ export function createRoomActions(store: RoomStore, refs: RoomRefs) {
     });
   }
 
+  /** Applies to the selection when there is one, otherwise sets the default. */
+  function setCornerRadius(radius: number, commit = true) {
+    store.setState({ styleCornerRadius: radius });
+    const bindings = refs.bindings;
+    if (!bindings) return;
+    const ids = store.getState().selectedIds;
+    if (ids.length === 0) return;
+    const who = actor();
+    bindings.doc.transact(() => {
+      for (const id of ids) {
+        const obj = refs.objects.get(id);
+        if (!obj || (obj.type !== "shape" && obj.type !== "sticky")) continue;
+        updateRoomObject(bindings, who, id, { props: { cornerRadius: radius } }, commit);
+      }
+    });
+  }
+
   function setStyleOpacity(opacity: number, commit = true) {
     store.setState({ styleOpacity: opacity });
     const bindings = refs.bindings;
@@ -425,6 +478,8 @@ export function createRoomActions(store: RoomStore, refs: RoomRefs) {
     selectAll,
     createStroke,
     createAt,
+    insertImage,
+    startAudioAtCenter,
     copySelection,
     pasteClipboard,
     cancelAudioCapture,
@@ -437,6 +492,7 @@ export function createRoomActions(store: RoomStore, refs: RoomRefs) {
     setStyleColor,
     setStyleSize,
     setStyleOpacity,
+    setCornerRadius,
     undo,
     redo,
     setZoom,

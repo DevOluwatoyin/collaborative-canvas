@@ -25,7 +25,6 @@ import {
 import { blobToDataUrl, putMediaBlob } from "@/lib/media/store";
 import { uploadMedia } from "@/lib/media/remote";
 import type { PhysicsBridge } from "@/lib/physics/engine";
-import { pickFile } from "./media";
 
 type Actor = Pick<GuestIdentity, "id" | "username">;
 
@@ -202,7 +201,7 @@ async function mediaProps(
   return { ...extra, src: await blobToDataUrl(blob), inlineMedia: true };
 }
 
-export async function createObjectAt(
+export function createObjectAt(
   bindings: RoomBindings,
   actor: Actor,
   world: PathPoint,
@@ -213,7 +212,7 @@ export async function createObjectAt(
     forceType?: CanvasObject["type"];
     hitId?: string | null;
   }
-): Promise<{ id: string; openEditor: boolean; switchToSelect: boolean } | null> {
+): { id: string; openEditor: boolean; switchToSelect: boolean } | null {
   const type =
     opts.forceType ??
     (opts.tool === "select" ||
@@ -266,15 +265,10 @@ export async function createObjectAt(
     };
     width = 180;
     height = 160;
-  } else if (type === "image") {
-    const file = await pickFile("image/*");
-    if (!file) return null;
-    props = await mediaProps(id, file, { name: file.name });
-    width = 240;
-    height = 180;
-  } else if (type === "audio") {
-    // Audio is captured by the recorder panel, which calls createAudioObject
-    // when the user stops. Placing one here would mean recording with no UI.
+  } else if (type === "image" || type === "audio") {
+    // Both are created by the toolbar, which opens the file picker or the
+    // recorder immediately. Handling them here would mean the icon does nothing
+    // until the user also clicks the canvas.
     return null;
   }
 
@@ -297,6 +291,57 @@ export async function createObjectAt(
     openEditor: type === "text" || type === "sticky",
     switchToSelect: opts.tool !== "physics",
   };
+}
+
+/**
+ * Creates an image object from an already-picked file. Separate from
+ * createObjectAt because the toolbar opens the picker directly, without the
+ * placement click that path assumes.
+ */
+export async function createImageObject(
+  bindings: RoomBindings,
+  actor: Actor,
+  world: PathPoint,
+  file: File
+): Promise<string> {
+  const id = nanoid(10);
+  const props = await mediaProps(id, file, { name: file.name });
+  // Fit the natural aspect ratio into a sensible default box so portraits are
+  // not stretched into the old fixed 240x180 frame.
+  const { width, height } = await fitImageBox(file);
+  const obj = createCanvasObject({
+    id,
+    type: "image",
+    x: world.x - width / 2,
+    y: world.y - height / 2,
+    width,
+    height,
+    zIndex: nextZIndex(),
+    createdBy: actor.id,
+    props,
+  });
+  createRoomObject(bindings, actor, obj);
+  return id;
+}
+
+const IMAGE_MAX_EDGE = 320;
+
+async function fitImageBox(file: Blob): Promise<{ width: number; height: number }> {
+  const fallback = { width: 240, height: 180 };
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+    const { naturalWidth: w, naturalHeight: h } = img;
+    if (!w || !h) return fallback;
+    const scale = Math.min(IMAGE_MAX_EDGE / w, IMAGE_MAX_EDGE / h, 1);
+    return { width: Math.round(w * scale), height: Math.round(h * scale) };
+  } catch {
+    return fallback;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
 }
 
 /** Creates the audio object once the recorder panel has captured a clip. */

@@ -1,5 +1,6 @@
 import { Container, Graphics, Text, TextStyle, Sprite, Texture } from "pixi.js";
 import {
+  cornerRadiusOf,
   propNumber,
   propPoints,
   propStrokes,
@@ -97,7 +98,13 @@ export function updateDisplay(
       entry.bg.closePath();
       entry.bg.fill(fill);
     } else {
-      entry.bg.roundRect(0, 0, obj.width, obj.height, 10);
+      entry.bg.roundRect(
+        0,
+        0,
+        obj.width,
+        obj.height,
+        cornerRadiusOf(obj.props, obj.width, obj.height)
+      );
       entry.bg.fill(fill);
     }
     for (const stroke of propStrokes(obj.props, "scribbles")) {
@@ -117,7 +124,13 @@ export function updateDisplay(
       entry.label.y = obj.height / 2 - entry.label.height / 2;
     }
   } else if (obj.type === "sticky") {
-    entry.bg.roundRect(0, 0, obj.width, obj.height, 4);
+    entry.bg.roundRect(
+      0,
+      0,
+      obj.width,
+      obj.height,
+      cornerRadiusOf(obj.props, obj.width, obj.height, 4)
+    );
     entry.bg.fill(parseColor(propString(obj.props, "color", "#FDE68A")));
     if (entry.label) {
       entry.label.visible = true;

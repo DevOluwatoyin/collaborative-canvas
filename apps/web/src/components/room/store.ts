@@ -60,6 +60,7 @@ export type RoomState = {
   styleColor: string;
   styleSize: SizeName;
   styleOpacity: number;
+  styleCornerRadius: number;
 
   /** Mirrors the canvas zoom so the zoom control can display and drive it. */
   zoom: number;
@@ -93,6 +94,11 @@ export type RoomRefs = {
   undo: Y.UndoManager | null;
   /** Set by the canvas so zoom controls can drive the viewport imperatively. */
   zoomTo: ((zoom: number) => void) | null;
+  /**
+   * World point at the middle of the visible canvas. Tools that create an object
+   * without a placement click (image, audio) drop it here.
+   */
+  viewportCenter: (() => { x: number; y: number }) | null;
   objects: Map<string, CanvasObject>;
   dirty: Set<string>;
   removed: Set<string>;
@@ -129,6 +135,7 @@ export function createRoomStore(roomId: string, identity: GuestIdentity) {
     styleColor: "#4465e9",
     styleSize: "m",
     styleOpacity: 1,
+    styleCornerRadius: 10,
     zoom: 1,
     canUndo: false,
     canRedo: false,
@@ -143,6 +150,7 @@ export function createRoomRefs(): RoomRefs {
     physics: null,
     undo: null,
     zoomTo: null,
+    viewportCenter: null,
     objects: new Map(),
     dirty: new Set(),
     removed: new Set(),
@@ -172,6 +180,13 @@ export function setZoomHandle(
   zoomTo: ((zoom: number) => void) | null
 ): void {
   refs.zoomTo = zoomTo;
+}
+
+export function setViewportCenterHandle(
+  refs: RoomRefs,
+  viewportCenter: (() => { x: number; y: number }) | null
+): void {
+  refs.viewportCenter = viewportCenter;
 }
 
 export function detachRoomInfra(refs: RoomRefs): void {

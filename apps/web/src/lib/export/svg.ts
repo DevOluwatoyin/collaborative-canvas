@@ -1,4 +1,5 @@
 import {
+  cornerRadiusOf,
   propNumber,
   propPoints,
   propStrokes,
@@ -50,7 +51,7 @@ export function exportSVG(objects: CanvasObject[], roomId: string) {
           ? `<ellipse cx="${o.x + o.width / 2}" cy="${o.y + o.height / 2}" rx="${o.width / 2}" ry="${o.height / 2}" fill="${fill}"/>`
           : kind === "triangle"
             ? `<polygon points="${o.x + o.width / 2},${o.y} ${o.x + o.width},${o.y + o.height} ${o.x},${o.y + o.height}" fill="${fill}"/>`
-            : `<rect x="${o.x}" y="${o.y}" width="${o.width}" height="${o.height}" rx="8" fill="${fill}"/>`;
+            : `<rect x="${o.x}" y="${o.y}" width="${o.width}" height="${o.height}" rx="${cornerRadiusOf(o.props, o.width, o.height)}" fill="${fill}"/>`;
       // Freehand annotations drawn onto a shape live in props.scribbles and were
       // previously dropped from the export entirely.
       const scribbles = propStrokes(o.props, "scribbles")
@@ -74,7 +75,7 @@ export function exportSVG(objects: CanvasObject[], roomId: string) {
       const fill = escapeXml(propString(o.props, "color", "#FDE68A"));
       const text = escapeXml(propString(o.props, "text"));
       parts.push(
-        `<g${rot}><rect x="${o.x}" y="${o.y}" width="${o.width}" height="${o.height}" fill="${fill}" rx="4"/><text x="${o.x + 12}" y="${o.y + 28}" fill="#1f2937" font-family="Georgia, serif" font-size="14">${text}</text></g>`
+        `<g${rot}><rect x="${o.x}" y="${o.y}" width="${o.width}" height="${o.height}" fill="${fill}" rx="${cornerRadiusOf(o.props, o.width, o.height, 4)}"/><text x="${o.x + 12}" y="${o.y + 28}" fill="#1f2937" font-family="Georgia, serif" font-size="14">${text}</text></g>`
       );
     } else if (o.type === "text") {
       const text = escapeXml(propString(o.props, "text", "Text"));

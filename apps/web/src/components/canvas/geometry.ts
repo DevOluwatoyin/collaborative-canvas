@@ -83,6 +83,25 @@ export function handlePositions(bounds: Rect): { corner: HandleCorner; x: number
   ];
 }
 
+/**
+ * CSS cursor for each resize handle, so the pointer advertises the gesture
+ * before the user commits to a drag.
+ */
+const HANDLE_CURSOR: Record<HandleCorner, string> = {
+  nw: "nwse-resize",
+  se: "nwse-resize",
+  ne: "nesw-resize",
+  sw: "nesw-resize",
+  n: "ns-resize",
+  s: "ns-resize",
+  e: "ew-resize",
+  w: "ew-resize",
+};
+
+export function cursorForHandle(corner: HandleCorner): string {
+  return HANDLE_CURSOR[corner];
+}
+
 export function hitHandleAt(
   bounds: Rect | null,
   wx: number,

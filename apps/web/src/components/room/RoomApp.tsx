@@ -104,7 +104,11 @@ function RoomInner() {
       }
 
       const tool = TOOL_SHORTCUTS[key];
-      if (tool && !mod) actions.setTool(tool);
+      if (tool && !mod) {
+        if (tool === "image") actions.insertImage();
+        else if (tool === "audio") actions.startAudioAtCenter();
+        else actions.setTool(tool);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

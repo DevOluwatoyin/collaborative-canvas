@@ -156,6 +156,20 @@ export function propPoints(
   return Array.isArray(value) ? value.filter(isPathPoint) : [];
 }
 
+/**
+ * Corner radius for rectangular shapes and sticky notes, clamped so it can never
+ * exceed half the shorter edge (beyond that a rounded rect degenerates).
+ */
+export function cornerRadiusOf(
+  props: Record<string, unknown>,
+  width: number,
+  height: number,
+  fallback = 10
+): number {
+  const raw = propNumber(props, "cornerRadius", fallback);
+  return Math.max(0, Math.min(raw, Math.min(Math.abs(width), Math.abs(height)) / 2));
+}
+
 /** Reads an array-of-strokes prop, dropping anything malformed. */
 export function propStrokes(
   props: Record<string, unknown>,

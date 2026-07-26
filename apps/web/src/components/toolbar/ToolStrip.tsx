@@ -93,7 +93,15 @@ export function ToolStrip() {
           key={item.tool}
           item={item.tool === "shape" ? { ...item, icon: activeShapeIcon } : item}
           active={tool === item.tool}
-          onSelect={() => actions.setTool(item.tool)}
+          // Image and audio act immediately instead of arming a tool: both need
+          // a browser permission prompt (file dialog, microphone) that must be
+          // opened from this click to count as a user gesture, and waiting for a
+          // second click on the canvas made the icons feel unresponsive.
+          onSelect={() => {
+            if (item.tool === "image") actions.insertImage();
+            else if (item.tool === "audio") actions.startAudioAtCenter();
+            else actions.setTool(item.tool);
+          }}
         />
       ))}
 

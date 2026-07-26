@@ -1,4 +1,4 @@
-import type { Graphics } from "pixi.js";
+import type { Container, Graphics, Text } from "pixi.js";
 import { HANDLE_SIZE, SELECTION_COLOR } from "./constants";
 import { handlePositions, type ObjectLookup } from "./geometry";
 import type { PathPoint } from "@infinite-canvas/shared";
@@ -18,6 +18,41 @@ export function drawMarquee(
   gfx.rect(x, y, w, h);
   gfx.fill({ color: 0x3dd6c6, alpha: 0.12 });
   gfx.stroke({ width: 1 / zoom, color: SELECTION_COLOR });
+}
+
+/**
+ * Floating caption above the selection telling the user a double-click starts
+ * editing. Editing was otherwise undiscoverable: nothing about a selected note
+ * suggests a second click does something different from the first.
+ *
+ * Sized in screen pixels by counter-scaling, so it stays readable at any zoom.
+ */
+export function drawEditHint(
+  container: Container,
+  label: Text,
+  background: Graphics,
+  bounds: Rect | null,
+  zoom: number,
+  visible: boolean
+) {
+  container.visible = visible;
+  if (!visible || !bounds) return;
+
+  const padX = 7;
+  const padY = 3;
+  const width = label.width + padX * 2;
+  const height = label.height + padY * 2;
+
+  background.clear();
+  background.roundRect(0, 0, width, height, height / 2);
+  background.fill({ color: SELECTION_COLOR, alpha: 0.95 });
+  label.position.set(padX, padY);
+
+  container.scale.set(1 / zoom);
+  container.position.set(
+    bounds.x + bounds.width / 2 - width / (2 * zoom),
+    bounds.y - (height + 10) / zoom
+  );
 }
 
 export function drawSelectionHandles(

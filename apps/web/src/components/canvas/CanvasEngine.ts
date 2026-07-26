@@ -1,6 +1,6 @@
 "use client";
 
-import { Application, Container, Graphics } from "pixi.js";
+import { Application, Container, Graphics, Text, TextStyle } from "pixi.js";
 import type { CanvasObject, PresenceState, Tool } from "@infinite-canvas/shared";
 import { SpatialGrid } from "@/lib/spatial/grid";
 import {
@@ -26,7 +26,7 @@ import {
   type ObjectLookup,
 } from "./geometry";
 import { InteractionController } from "./interaction";
-import { drawSelectionHandles, drawWorldGrid } from "./overlayDraw";
+import { drawEditHint, drawSelectionHandles, drawWorldGrid } from "./overlayDraw";
 import type {
   CanvasEngineCallbacks,
   DisplayEntry,
@@ -77,6 +77,11 @@ export class CanvasEngine {
   private viewportDirty = true;
   private selectionDirty = true;
   private cursorZoom = 1;
+  private cursor = "default";
+  private hintGroup = new Container();
+  private hintBg = new Graphics();
+  private hintLabel: Text | null = null;
+  private editingId: string | null = null;
   private themeMode: CanvasThemeMode = "light";
 
   /** Stable lookup handed to geometry/overlay helpers. */
@@ -88,6 +93,9 @@ export class CanvasEngine {
     this.app = new Application();
     this.world = new Container();
     this.objectsLayer = new Container();
+    // Children are drawn in zIndex order rather than insertion order, so object
+    // stacking follows the data model.
+    this.objectsLayer.sortableChildren = true;
     this.cursorsLayer = new Container();
     this.overlayLayer = new Container();
     this.grid = new Graphics();
@@ -105,6 +113,7 @@ export class CanvasEngine {
       hitTest: (x, y) => this.hitTest(x, y),
       queryRect: (rect) => this.queryRect(rect),
       isOverlayActive: () => this.overlay !== null,
+      setCursor: (cursor) => this.setCursor(cursor),
       screenToWorld: (sx, sy) => this.screenToWorld(sx, sy),
       applyViewport: () => this.applyViewport(),
       redrawGrid: () => this.markViewportDirty(),
@@ -139,6 +148,21 @@ export class CanvasEngine {
     this.overlayLayer.addChild(this.marqueeGfx);
     this.overlayLayer.addChild(this.handlesGfx);
     this.overlayLayer.addChild(this.drawPreviewGfx);
+
+    this.hintLabel = new Text({
+      text: "Double-click to edit",
+      style: new TextStyle({
+        fill: 0xffffff,
+        fontSize: 12,
+        fontWeight: "600",
+        fontFamily: "Segoe UI, system-ui, sans-serif",
+      }),
+    });
+    this.hintGroup.addChild(this.hintBg);
+    this.hintGroup.addChild(this.hintLabel);
+    this.hintGroup.visible = false;
+    this.hintGroup.eventMode = "none";
+    this.overlayLayer.addChild(this.hintGroup);
     this.app.stage.addChild(this.world);
     this.app.stage.eventMode = "static";
     this.app.stage.hitArea = this.app.screen;
@@ -293,6 +317,39 @@ export class CanvasEngine {
     return Array.from(this.index.query(rect));
   }
 
+  /**
+   * Shows the double-click hint for a single selected object that holds text.
+   * Suppressed while that object is already being edited, and for multi-selects
+   * where the caption would be ambiguous.
+   */
+  private redrawEditHint(bounds: Rect | null) {
+    const label = this.hintLabel;
+    if (!label) return;
+    let show = false;
+    if (this.selectedIds.size === 1) {
+      const [id] = this.selectedIds;
+      const obj = this.activeSource().get(id);
+      show =
+        id !== this.editingId &&
+        (obj?.type === "text" || obj?.type === "sticky" || obj?.type === "shape");
+    }
+    drawEditHint(this.hintGroup, label, this.hintBg, bounds, this.viewport.zoom, show);
+  }
+
+  /** Hides the hint for the object currently open in the text editor. */
+  setEditingId(id: string | null) {
+    if (this.editingId === id) return;
+    this.editingId = id;
+    this.markSelectionDirty();
+  }
+
+  /** Writes the canvas cursor, skipping no-op style writes on every mousemove. */
+  setCursor(cursor: string) {
+    if (this.cursor === cursor) return;
+    this.cursor = cursor;
+    if (this.app.canvas) this.app.canvas.style.cursor = cursor;
+  }
+
   markViewportDirty() {
     this.viewportDirty = true;
   }
@@ -365,6 +422,11 @@ export class CanvasEngine {
       }
       entry.root.visible = true;
 
+      // Paint order comes from the object's zIndex, not from insertion order.
+      // Without this, "bring to front" and "send to back" changed the data and
+      // hit-testing but left the visible stacking untouched.
+      if (entry.root.zIndex !== obj.zIndex) entry.root.zIndex = obj.zIndex;
+
       const selected = this.selectedIds.has(id);
       if (entry.object !== obj || entry.selected !== selected || entry.lod !== lod) {
         updateDisplay(entry, obj, selected, lod, ensureImageTexture);
@@ -432,9 +494,11 @@ export class CanvasEngine {
   private redrawHandles() {
     if (this.overlay) {
       this.handlesGfx.clear();
+      this.hintGroup.visible = false;
       return;
     }
     const bounds = selectionBoundsFromIds(this.selectedIds, this.lookup);
+    this.redrawEditHint(bounds);
     drawSelectionHandles(
       this.handlesGfx,
       this.selectedIds,

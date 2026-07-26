@@ -1,7 +1,12 @@
 import type { FederatedPointerEvent } from "pixi.js";
 import { propString, type CanvasObject, type Tool } from "@infinite-canvas/shared";
 import { HANDLE_SIZE } from "./constants";
-import { computeGroupResize, hitHandleAt, selectionBoundsFromIds } from "./geometry";
+import {
+  computeGroupResize,
+  cursorForHandle,
+  hitHandleAt,
+  selectionBoundsFromIds,
+} from "./geometry";
 import { drawMarquee, drawStrokePreview } from "./overlayDraw";
 import type { Point, Rect } from "./types";
 import type { InteractionHost } from "./interactionHost";
@@ -89,6 +94,7 @@ export function handlePointerMove(
 ) {
   const world = host.screenToWorld(e.global.x, e.global.y);
   host.callbacks.onCursorMove(world);
+  updateHoverCursor(host, session, world);
 
   if (session.panning) {
     host.viewport.x = session.panStart.vx + (e.global.x - session.panStart.x);
@@ -149,6 +155,51 @@ export function handlePointerMove(
     host.callbacks.onObjectMove(updates);
     host.redrawHandles();
   }
+}
+
+/**
+ * Reflects what a press would do at the current position: a resize arrow on the
+ * selection handles, a move cursor over an object, grab while panning. Without
+ * this the resize handles were invisible affordances — you had to already know
+ * the edges were draggable.
+ */
+function updateHoverCursor(
+  host: InteractionHost,
+  session: PointerSession,
+  world: Point
+) {
+  if (session.dragging || session.resizing || session.marquee) return;
+
+  const tool = host.getTool();
+  if (tool === "pan" || session.spaceDown) {
+    host.setCursor(session.panning ? "grabbing" : "grab");
+    return;
+  }
+  if (tool === "draw") {
+    host.setCursor("crosshair");
+    return;
+  }
+  if (isPlacementTool(tool)) {
+    host.setCursor("copy");
+    return;
+  }
+
+  const selectedIds = host.getSelectedIds();
+  if (selectedIds.size > 0) {
+    const bounds = selectionBoundsFromIds(selectedIds, host);
+    const handle = hitHandleAt(
+      bounds,
+      world.x,
+      world.y,
+      HANDLE_SIZE / host.viewport.zoom
+    );
+    if (handle) {
+      host.setCursor(cursorForHandle(handle.corner));
+      return;
+    }
+  }
+
+  host.setCursor(host.hitTest(world.x, world.y) ? "move" : "default");
 }
 
 function isPlacementTool(tool: Tool) {

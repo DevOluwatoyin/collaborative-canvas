@@ -9,7 +9,7 @@ import {
   useRoomHandles,
   useRoomState,
 } from "@/components/room/RoomStoreProvider";
-import { setZoomHandle } from "@/components/room/store";
+import { setViewportCenterHandle, setZoomHandle } from "@/components/room/store";
 import { getCurrentTheme, useTheme } from "@/lib/theme/ThemeProvider";
 
 /**
@@ -123,6 +123,10 @@ export function CanvasStage() {
       // frame, even if CRDT observers fired before the engine was ready.
       for (const id of refs.objects.keys()) refs.dirty.add(id);
       setZoomHandle(refs, (zoom) => instance.setZoom(zoom));
+      setViewportCenterHandle(refs, () => {
+        const b = instance.getWorldBounds();
+        return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+      });
       instance.setTool(store.getState().tool);
       instance.setSelectedIds(store.getState().selectedIds);
       instance.syncCursors(store.getState().remotes);
@@ -140,6 +144,9 @@ export function CanvasStage() {
       if (state.replayObjects !== previous.replayObjects) {
         instance.setOverlayObjects(state.replayObjects);
       }
+      if (state.editingTextId !== previous.editingTextId) {
+        instance.setEditingId(state.editingTextId);
+      }
       if (state.remotes !== previous.remotes) instance.syncCursors(state.remotes);
     });
 
@@ -148,6 +155,7 @@ export function CanvasStage() {
       cancelAnimationFrame(raf);
       unsubscribe();
       setZoomHandle(refs, null);
+      setViewportCenterHandle(refs, null);
       setEngine(null);
       instance.destroy();
     };
