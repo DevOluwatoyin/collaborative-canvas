@@ -263,14 +263,19 @@ function useRoomWiring({ store, refs }: RoomContextValue) {
     window.addEventListener("online", onOnline);
     window.addEventListener("offline", onOffline);
 
-    if (bindings.persistence) {
-      bindings.persistence.once("synced", () => {
+    // Persistence attaches asynchronously (after an IndexedDB availability
+    // probe) and is null in browsers that deny storage access.
+    let disposed = false;
+    void bindings.whenPersistence.then((persistence) => {
+      if (!persistence || disposed) return;
+      persistence.once("synced", () => {
+        if (disposed) return;
         primeObjects();
         onHistory();
         onMeta();
         store.setState({ synced: true });
       });
-    }
+    });
 
     primeObjects();
     onHistory();
@@ -278,6 +283,7 @@ function useRoomWiring({ store, refs }: RoomContextValue) {
     onPresence();
 
     return () => {
+      disposed = true;
       if (uiTimer) clearTimeout(uiTimer);
       bindings.objects.unobserveDeep(onObjects);
       undoManager.off("stack-item-added", onUndoStack);

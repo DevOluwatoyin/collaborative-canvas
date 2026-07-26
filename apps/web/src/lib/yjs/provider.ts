@@ -60,8 +60,13 @@ const META_HISTORY_BASE_COUNT = "historyBaseCount";
 export type RoomBindings = {
   doc: Y.Doc;
   provider: WebsocketProvider;
+  /** Populated asynchronously once the IndexedDB probe succeeds. */
   persistence: IndexeddbPersistence | null;
-  persistenceAvailable: boolean;
+  /**
+   * Resolves with the persistence once storage is confirmed usable, or null
+   * when the browser denies IndexedDB (Brave shields, private windows, …).
+   */
+  whenPersistence: Promise<IndexeddbPersistence | null>;
   objects: YObjects;
   history: Y.Array<HistoryOp>;
   meta: Y.Map<unknown>;
@@ -72,16 +77,48 @@ type PersistenceWithDb = IndexeddbPersistence & {
   _db?: Promise<IDBDatabase>;
 };
 
-function tryCreatePersistence(roomId: string, doc: Y.Doc): IndexeddbPersistence | null {
-  if (typeof indexedDB === "undefined") return null;
-  try {
+/**
+ * Confirms IndexedDB actually grants access before y-indexeddb touches it.
+ * y-indexeddb's constructor chains `.then()` on its open promise with no
+ * rejection handler, so a denied open (Brave shields, private windows) always
+ * escapes as an unhandled rejection — it cannot be caught after construction.
+ * The probe uses the raw event API, which reports denial via a handled event
+ * instead of a rejected promise.
+ */
+function probeIndexedDb(): Promise<boolean> {
+  if (typeof indexedDB === "undefined") return Promise.resolve(false);
+  return new Promise((resolve) => {
+    try {
+      const req = indexedDB.open("orbitboard-idb-probe");
+      req.onsuccess = () => {
+        req.result.close();
+        resolve(true);
+      };
+      req.onerror = () => resolve(false);
+    } catch {
+      resolve(false);
+    }
+  });
+}
+
+function tryCreatePersistence(
+  roomId: string,
+  doc: Y.Doc
+): Promise<IndexeddbPersistence | null> {
+  return probeIndexedDb().then((available) => {
+    if (!available) {
+      console.warn(
+        "[orbitboard] IndexedDB unavailable — continuing without offline cache"
+      );
+      return null;
+    }
+
     const persistence = new IndexeddbPersistence(
       `room-${roomId}`,
       doc
     ) as PersistenceWithDb;
 
-    // y-indexeddb does not catch open failures (e.g. private browsing denial).
-    // Attach a handler so the rejection does not crash the app.
+    // Belt and braces for failures after a successful probe (e.g. quota).
     void persistence._db?.catch((err: unknown) => {
       console.warn(
         "[orbitboard] IndexedDB unavailable — offline cache disabled:",
@@ -95,13 +132,7 @@ function tryCreatePersistence(roomId: string, doc: Y.Doc): IndexeddbPersistence 
     });
 
     return persistence;
-  } catch (err) {
-    console.warn(
-      "[orbitboard] IndexedDB blocked — continuing without offline cache:",
-      err
-    );
-    return null;
-  }
+  });
 }
 
 export function createRoomBindings(
@@ -109,7 +140,6 @@ export function createRoomBindings(
   identity: GuestIdentity
 ): RoomBindings {
   const doc = new Y.Doc();
-  const persistence = tryCreatePersistence(roomId, doc);
   const provider = new WebsocketProvider(resolveCollabUrl(), roomId, doc, {
     connect: true,
   });
@@ -136,24 +166,35 @@ export function createRoomBindings(
     viewport: { x: 0, y: 0, width: 800, height: 600, zoom: 1 },
   } satisfies PresenceState);
 
-  return {
+  const bindings: RoomBindings = {
     doc,
     provider,
-    persistence,
-    persistenceAvailable: persistence !== null,
+    persistence: null,
+    whenPersistence: Promise.resolve(null),
     objects,
     history,
     meta,
     awareness,
   };
+
+  bindings.whenPersistence = tryCreatePersistence(roomId, doc).then(
+    (persistence) => {
+      bindings.persistence = persistence;
+      return persistence;
+    }
+  );
+
+  return bindings;
 }
 
 export function destroyRoomBindings(bindings: RoomBindings) {
   bindings.awareness.setLocalState(null);
   bindings.provider.destroy();
-  if (bindings.persistence) {
-    void bindings.persistence.destroy().catch(() => undefined);
-  }
+  // Runs after the creation chain, so a persistence still being probed when
+  // the room unmounts is destroyed as soon as it materialises.
+  void bindings.whenPersistence
+    .then((persistence) => persistence?.destroy())
+    .catch(() => undefined);
   bindings.doc.destroy();
 }
 
