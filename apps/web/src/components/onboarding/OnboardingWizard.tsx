@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { TOUR_STEPS, type TourStep } from "./tourSteps";
 
 const STORAGE_KEY = "orbitboard-onboarding-done";
@@ -44,33 +44,61 @@ function readTarget(step: TourStep): Box | null {
   return { top: rect.top, left: rect.left, width: rect.width, height: rect.height };
 }
 
-/** Places the callout on the requested side, clamped inside the viewport. */
-function calloutPosition(box: Box | null, side: TourStep["side"]) {
+/** Places the callout on the requested side, clamped inside the viewport without covering the target. */
+function calloutPosition(
+  box: Box | null,
+  preferredSide: TourStep["side"],
+  cardHeight: number
+) {
   if (!box) {
     return {
-      left: (window.innerWidth - CALLOUT_WIDTH) / 2,
-      top: Math.max(MARGIN, window.innerHeight / 2 - 140),
+      left: Math.max(MARGIN, (window.innerWidth - CALLOUT_WIDTH) / 2),
+      top: Math.max(MARGIN, (window.innerHeight - cardHeight) / 2),
     };
   }
+
+  let side = preferredSide;
+
+  // Auto-flip side if preferred side pushes the callout past viewport boundaries
+  if (side === "top" && box.top - GAP - cardHeight < MARGIN) {
+    side = "bottom";
+  } else if (
+    side === "bottom" &&
+    box.top + box.height + GAP + cardHeight > window.innerHeight - MARGIN
+  ) {
+    side = "top";
+  } else if (side === "left" && box.left - CALLOUT_WIDTH - GAP < MARGIN) {
+    side = box.top - GAP - cardHeight >= MARGIN ? "top" : "right";
+  } else if (
+    side === "right" &&
+    box.left + box.width + GAP + CALLOUT_WIDTH > window.innerWidth - MARGIN
+  ) {
+    side = box.top - GAP - cardHeight >= MARGIN ? "top" : "left";
+  }
+
   let left = box.left + box.width / 2 - CALLOUT_WIDTH / 2;
   let top = box.top + box.height + GAP;
 
-  if (side === "top") top = box.top - GAP - 190;
-  if (side === "left") {
+  if (side === "top") {
+    top = box.top - GAP - cardHeight;
+    left = box.left + box.width / 2 - CALLOUT_WIDTH / 2;
+  } else if (side === "bottom") {
+    top = box.top + box.height + GAP;
+    left = box.left + box.width / 2 - CALLOUT_WIDTH / 2;
+  } else if (side === "left") {
     left = box.left - CALLOUT_WIDTH - GAP;
-    top = box.top;
-  }
-  if (side === "right") {
+    top = box.top + box.height / 2 - cardHeight / 2;
+  } else if (side === "right") {
     left = box.left + box.width + GAP;
-    top = box.top;
+    top = box.top + box.height / 2 - cardHeight / 2;
   }
 
+  const maxLeft = Math.max(MARGIN, window.innerWidth - CALLOUT_WIDTH - MARGIN);
+  const maxTop = Math.max(MARGIN, window.innerHeight - cardHeight - MARGIN);
+
   return {
-    left: Math.min(
-      Math.max(MARGIN, left),
-      Math.max(MARGIN, window.innerWidth - CALLOUT_WIDTH - MARGIN)
-    ),
-    top: Math.min(Math.max(MARGIN, top), Math.max(MARGIN, window.innerHeight - 210)),
+    left: Math.min(Math.max(MARGIN, left), maxLeft),
+    top: Math.min(Math.max(MARGIN, top), maxTop),
   };
 }
 
@@ -89,16 +117,36 @@ export function OnboardingWizard({ onClose }: { onClose: () => void }) {
   const [index, setIndex] = useState(0);
   const step = steps[index] ?? steps[0];
   const [box, setBox] = useState<Box | null>(null);
+  const [cardHeight, setCardHeight] = useState(240);
+  const cardRef = useRef<HTMLDivElement>(null);
 
   // Measured before paint so the spotlight never renders a frame at the wrong
   // place, and re-measured on resize because every target is viewport-anchored.
   useLayoutEffect(() => {
     if (!step) return;
-    const measure = () => setBox(readTarget(step));
+    const measure = () => {
+      setBox(readTarget(step));
+      if (cardRef.current) {
+        const rect = cardRef.current.getBoundingClientRect();
+        if (rect.height > 0) {
+          setCardHeight(rect.height);
+        }
+      }
+    };
     measure();
     window.addEventListener("resize", measure);
     return () => window.removeEventListener("resize", measure);
   }, [step]);
+
+  // Re-measure height when step/index changes
+  useLayoutEffect(() => {
+    if (cardRef.current) {
+      const rect = cardRef.current.getBoundingClientRect();
+      if (rect.height > 0) {
+        setCardHeight(rect.height);
+      }
+    }
+  }, [index, step]);
 
   const finish = useCallback(() => {
     markOnboardingDone();
@@ -118,7 +166,7 @@ export function OnboardingWizard({ onClose }: { onClose: () => void }) {
   if (!step) return null;
 
   const isLast = index === steps.length - 1;
-  const pos = calloutPosition(box, step.side);
+  const pos = calloutPosition(box, step.side, cardHeight);
 
   return (
     <div className="fixed inset-0 z-[80]" role="dialog" aria-modal="true">
@@ -140,6 +188,7 @@ export function OnboardingWizard({ onClose }: { onClose: () => void }) {
       )}
 
       <div
+        ref={cardRef}
         className="ui-card absolute p-4 shadow-2xl"
         style={{ top: pos.top, left: pos.left, width: CALLOUT_WIDTH }}
       >

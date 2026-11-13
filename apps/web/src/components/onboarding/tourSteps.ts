@@ -60,7 +60,7 @@ export const TOUR_STEPS: TourStep[] = [
     target: "radar",
     title: "See everyone at once",
     body: "The radar plots the whole board. Each collaborator's viewport is outlined in their colour, so you can tell who is working where even when they are far off-screen.",
-    side: "left",
+    side: "top",
   },
   {
     target: "share",
